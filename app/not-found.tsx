@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { GraduationCap, Home, ArrowLeft } from "lucide-react"
+import { Home, ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 
 export default function NotFound() {
   return (
@@ -11,8 +12,14 @@ export default function NotFound() {
           {/* Header */}
           <div className="mb-8">
             <Link href="/" className="inline-flex items-center gap-2 mb-6">
-              <GraduationCap className="h-8 w-8 text-primary" />
-              <span className="text-2xl font-serif font-bold text-primary">STICA</span>
+              <Image 
+                src="/marketeam-logo.png" 
+                alt="Marketeam Logo" 
+                width={48} 
+                height={48} 
+                className="h-12 w-12"
+              />
+              <span className="text-2xl font-serif font-bold text-primary">Marketeam</span>
             </Link>
           </div>
 

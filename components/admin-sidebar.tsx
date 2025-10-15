@@ -1,7 +1,8 @@
 "use client"
 
-import { GraduationCap, Users, FileText, BookOpen, TrendingUp, Settings, LogOut, BarChart3, Megaphone, ClipboardCheck } from "lucide-react"
+import { Users, FileText, BookOpen, TrendingUp, Settings, LogOut, BarChart3, Megaphone, ClipboardCheck } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 
 interface AdminSidebarProps {

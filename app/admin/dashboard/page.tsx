@@ -2,8 +2,9 @@
 
 import { useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { GraduationCap, LogOut, FileText, Users, BookOpen, TrendingUp } from "lucide-react"
+import { LogOut, FileText, Users, BookOpen, TrendingUp } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -136,8 +137,14 @@ export default function AdminDashboardPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <GraduationCap className="h-8 w-8 text-primary" />
-              <span className="text-2xl font-serif font-bold text-primary">STICA</span>
+              <Image 
+                src="/marketeam-logo.png" 
+                alt="Marketeam Logo" 
+                width={48} 
+                height={48} 
+                className="h-12 w-12"
+              />
+              <span className="text-2xl font-serif font-bold text-primary">Marketeam</span>
               <span className="text-sm text-muted-foreground ml-2">Admin Dashboard</span>
             </Link>
             <div className="flex items-center gap-4">

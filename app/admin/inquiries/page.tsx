@@ -13,8 +13,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AdminBreadcrumbs } from "@/components/admin-breadcrumbs"
 import { AdminSidebar } from "@/components/admin-sidebar"
-import { GraduationCap, Search, Eye, MessageSquare, Phone, Mail, LogOut, Edit, CheckCircle, AlertCircle } from "lucide-react"
+import { Search, Eye, MessageSquare, Phone, Mail, LogOut, Edit, CheckCircle, AlertCircle } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 
 export default function InquiriesPage() {
@@ -29,47 +30,69 @@ export default function InquiriesPage() {
   const [inquiries, setInquiries] = useState([
     {
       id: 1,
-      name: "John Smith",
-      email: "john.smith@email.com",
-      phone: "+1 (555) 123-4567",
-      program: "Software Development",
+      name: "Juan Dela Cruz",
+      email: "juan.delacruz@gmail.com",
+      phone: "+63 917 123 4567",
+      program: "BS Information Technology",
       status: "New",
       date: "2024-01-15",
-      priority: "High",
+      studentType: "College",
       notes: "",
     },
     {
       id: 2,
-      name: "Sarah Johnson",
-      email: "sarah.j@email.com",
-      phone: "+1 (555) 234-5678",
-      program: "Data Science",
+      name: "Maria Santos",
+      email: "maria.santos@yahoo.com",
+      phone: "+63 918 234 5678",
+      program: "BS Computer Science",
       status: "Contacted",
       date: "2024-01-14",
-      priority: "Medium",
+      studentType: "College",
       notes: "Interested in evening classes",
     },
     {
       id: 3,
-      name: "Mike Chen",
-      email: "mike.chen@email.com",
-      phone: "+1 (555) 345-6789",
-      program: "Business Administration",
+      name: "Jose Garcia",
+      email: "jose.garcia@outlook.com",
+      phone: "+63 919 345 6789",
+      program: "BS Business Administration",
       status: "Qualified",
       date: "2024-01-13",
-      priority: "High",
+      studentType: "College",
       notes: "Has previous business experience",
     },
     {
       id: 4,
-      name: "Emily Davis",
-      email: "emily.davis@email.com",
-      phone: "+1 (555) 456-7890",
-      program: "Digital Marketing",
+      name: "Ana Rodriguez",
+      email: "ana.rodriguez@gmail.com",
+      phone: "+63 920 456 7890",
+      program: "BS Hospitality Management",
       status: "New",
       date: "2024-01-12",
-      priority: "Low",
+      studentType: "College",
       notes: "",
+    },
+    {
+      id: 5,
+      name: "Carlos Mendoza",
+      email: "carlos.mendoza@yahoo.com",
+      phone: "+63 921 567 8901",
+      program: "BS Tourism Management",
+      status: "Contacted",
+      date: "2024-01-11",
+      studentType: "College",
+      notes: "Wants to know about scholarship opportunities",
+    },
+    {
+      id: 6,
+      name: "Sofia Reyes",
+      email: "sofia.reyes@gmail.com",
+      phone: "+63 922 678 9012",
+      program: "IT in Mobile App and Web Development",
+      status: "New",
+      date: "2024-01-10",
+      studentType: "High School",
+      notes: "Senior High School student",
     },
   ])
 
@@ -90,7 +113,7 @@ export default function InquiriesPage() {
       // Update the inquiry in state
       setInquiries(prev => prev.map(inquiry => 
         inquiry.id === editingInquiry.id 
-          ? { ...inquiry, status: editingInquiry.status, priority: editingInquiry.priority, notes: editingInquiry.notes }
+          ? { ...inquiry, status: editingInquiry.status, studentType: editingInquiry.studentType, notes: editingInquiry.notes }
           : inquiry
       ))
       
@@ -128,24 +151,12 @@ export default function InquiriesPage() {
       case "Contacted":
         return "secondary"
       case "Qualified":
-        return "default"
+        return "success"
       default:
         return "secondary"
     }
   }
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "High":
-        return "destructive"
-      case "Medium":
-        return "default"
-      case "Low":
-        return "secondary"
-      default:
-        return "secondary"
-    }
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -153,11 +164,17 @@ export default function InquiriesPage() {
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="h-8 w-8 text-primary" />
-              <span className="text-2xl font-serif font-bold text-primary">STICA</span>
+            <Link href="/" className="flex items-center gap-2">
+              <Image 
+                src="/marketeam-logo.png" 
+                alt="Marketeam Logo" 
+                width={48} 
+                height={48} 
+                className="h-12 w-12"
+              />
+              <span className="text-2xl font-serif font-bold text-primary">Marketeam</span>
               <span className="text-sm text-muted-foreground ml-2">Admin Dashboard</span>
-            </div>
+            </Link>
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">Welcome, Administrator</span>
               <Button variant="outline" size="sm" onClick={handleLogout}>
@@ -267,7 +284,7 @@ export default function InquiriesPage() {
                     <TableHead>Contact</TableHead>
                     <TableHead>Program</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Priority</TableHead>
+                    <TableHead>Type of Student</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -290,10 +307,20 @@ export default function InquiriesPage() {
                       </TableCell>
                       <TableCell>{inquiry.program}</TableCell>
                       <TableCell>
-                        <Badge variant={getStatusColor(inquiry.status) as any}>{inquiry.status}</Badge>
+                        {inquiry.status === "Qualified" ? (
+                          <Badge className="bg-green-500 text-white border-green-500">{inquiry.status}</Badge>
+                        ) : inquiry.status === "Contacted" ? (
+                          <Badge className="bg-blue-500 text-white border-blue-500">{inquiry.status}</Badge>
+                        ) : (
+                          <Badge variant={getStatusColor(inquiry.status) as any}>{inquiry.status}</Badge>
+                        )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getPriorityColor(inquiry.priority) as any}>{inquiry.priority}</Badge>
+                        {inquiry.studentType === "College" ? (
+                          <Badge className="bg-blue-800 text-white border-blue-800">{inquiry.studentType}</Badge>
+                        ) : (
+                          <Badge className="bg-yellow-500 text-black border-yellow-500">{inquiry.studentType}</Badge>
+                        )}
                       </TableCell>
                       <TableCell>{inquiry.date}</TableCell>
                       <TableCell>
@@ -351,18 +378,17 @@ export default function InquiriesPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="priority">Priority</Label>
+                <Label htmlFor="studentType">Type of Student</Label>
                 <Select 
-                  value={editingInquiry.priority} 
-                  onValueChange={(value) => setEditingInquiry({...editingInquiry, priority: value})}
+                  value={editingInquiry.studentType} 
+                  onValueChange={(value) => setEditingInquiry({...editingInquiry, studentType: value})}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Low">Low</SelectItem>
-                    <SelectItem value="Medium">Medium</SelectItem>
-                    <SelectItem value="High">High</SelectItem>
+                    <SelectItem value="College">College</SelectItem>
+                    <SelectItem value="High School">High School</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

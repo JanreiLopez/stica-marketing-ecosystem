@@ -16,8 +16,8 @@ const sourceSans = Source_Sans_3({
 })
 
 export const metadata: Metadata = {
-  title: "STICA - Educational Excellence",
-  description: "Data-Driven Marketing Ecosystem for STICA Educational Institution",
+  title: "Marketeam - Educational Excellence",
+  description: "Data-Driven Marketing Ecosystem for Marketeam Educational Institution",
   generator: "v0.app",
 }
 

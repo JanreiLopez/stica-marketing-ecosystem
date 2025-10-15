@@ -3,10 +3,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { GraduationCap, BarChart3, TrendingUp, Users, Star, LogOut } from "lucide-react"
+import { BarChart3, TrendingUp, Users, Star, LogOut } from "lucide-react"
 import { AdminBreadcrumbs } from "@/components/admin-breadcrumbs"
 import { AdminSidebar } from "@/components/admin-sidebar"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 
 export default function EvaluationPage() {
@@ -22,11 +23,17 @@ export default function EvaluationPage() {
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="h-8 w-8 text-primary" />
-              <span className="text-2xl font-serif font-bold text-primary">STICA</span>
+            <Link href="/" className="flex items-center gap-2">
+              <Image 
+                src="/marketeam-logo.png" 
+                alt="Marketeam Logo" 
+                width={48} 
+                height={48} 
+                className="h-12 w-12"
+              />
+              <span className="text-2xl font-serif font-bold text-primary">Marketeam</span>
               <span className="text-sm text-muted-foreground ml-2">Admin Dashboard</span>
-            </div>
+            </Link>
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">Welcome, Administrator</span>
               <Button variant="outline" size="sm" onClick={handleLogout}>
@@ -110,11 +117,14 @@ export default function EvaluationPage() {
               <CardContent>
                 <div className="space-y-4">
                   {[
-                    { program: "Software Development", rating: 4.8, responses: 156, trend: "+0.3" },
-                    { program: "Data Science & Analytics", rating: 4.7, responses: 134, trend: "+0.1" },
-                    { program: "Business Administration", rating: 4.6, responses: 189, trend: "+0.2" },
-                    { program: "Digital Marketing", rating: 4.5, responses: 98, trend: "-0.1" },
-                    { program: "Cybersecurity", rating: 4.9, responses: 87, trend: "+0.4" },
+                    { program: "BS Information Technology (BSIT)", rating: 4.8, responses: 156, trend: "+0.3" },
+                    { program: "BS Computer Science (BSCS)", rating: 4.7, responses: 134, trend: "+0.1" },
+                    { program: "BS Business Administration (BSBA)", rating: 4.6, responses: 189, trend: "+0.2" },
+                    { program: "BS Hospitality Management (BSHM)", rating: 4.5, responses: 98, trend: "-0.1" },
+                    { program: "BS Tourism Management (BSTM)", rating: 4.9, responses: 87, trend: "+0.4" },
+                    { program: "IT in Mobile App and Web Development", rating: 4.7, responses: 145, trend: "+0.2" },
+                    { program: "Humanities and Social Sciences (HUMMS)", rating: 4.4, responses: 92, trend: "+0.1" },
+                    { program: "Accountancy, Business, and Management (ABM)", rating: 4.6, responses: 134, trend: "+0.3" },
                   ].map((program, index) => (
                     <div
                       key={index}
@@ -150,17 +160,17 @@ export default function EvaluationPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Learning Outcomes</CardTitle>
+                <CardTitle>Data-slot</CardTitle>
                 <CardDescription>Key performance indicators for student success</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {[
-                    { metric: "Skill Acquisition", score: 92, target: 85, status: "Exceeds" },
-                    { metric: "Project Completion", score: 88, target: 90, status: "Below" },
-                    { metric: "Peer Collaboration", score: 94, target: 80, status: "Exceeds" },
-                    { metric: "Industry Readiness", score: 87, target: 85, status: "Meets" },
-                    { metric: "Critical Thinking", score: 91, target: 85, status: "Exceeds" },
+                    { metric: "open", score: 92, target: 85, status: "Exceeds" },
+                    { metric: "open", score: 88, target: 90, status: "Below" },
+                    { metric: "open", score: 94, target: 80, status: "Exceeds" },
+                    { metric: "open", score: 87, target: 85, status: "Meets" },
+                    { metric: "open", score: 91, target: 85, status: "Exceeds" },
                   ].map((outcome, index) => (
                     <div key={index} className="space-y-2">
                       <div className="flex items-center justify-between">

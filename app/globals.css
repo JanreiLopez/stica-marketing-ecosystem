@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Updated color tokens to match STICA educational design brief */
+  /* Updated color tokens to match Marketeam educational design brief */
   --background: #ffffff;
   --foreground: #475569;
   --card: #ecfeff;
@@ -23,7 +23,7 @@
   --destructive-foreground: #ffffff;
   --border: #e2e8f0;
   --input: #f9fafb;
-  --ring: rgba(22, 78, 99, 0.5);
+  --ring: rgba(255, 235, 59, 0.6);
   --chart-1: #3b82f6;
   --chart-2: #f97316;
   --chart-3: #10b981;
@@ -34,10 +34,10 @@
   --sidebar-foreground: #475569;
   --sidebar-primary: #164e63;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #d97706;
+  --sidebar-accent: #fbbf24;
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #e2e8f0;
-  --sidebar-ring: rgba(22, 78, 99, 0.5);
+  --sidebar-ring: rgba(255, 235, 59, 0.6);
 }
 
 .dark {
@@ -59,7 +59,7 @@
   --destructive-foreground: #ffffff;
   --border: #334155;
   --input: #334155;
-  --ring: rgba(14, 165, 233, 0.5);
+  --ring: rgba(255, 235, 59, 0.6);
   --chart-1: #3b82f6;
   --chart-2: #f97316;
   --chart-3: #10b981;
@@ -69,10 +69,10 @@
   --sidebar-foreground: #e2e8f0;
   --sidebar-primary: #0ea5e9;
   --sidebar-primary-foreground: #0f172a;
-  --sidebar-accent: #f59e0b;
+  --sidebar-accent: #fbbf24;
   --sidebar-accent-foreground: #0f172a;
   --sidebar-border: #334155;
-  --sidebar-ring: rgba(14, 165, 233, 0.5);
+  --sidebar-ring: rgba(255, 235, 59, 0.6);
 }
 
 @theme inline {

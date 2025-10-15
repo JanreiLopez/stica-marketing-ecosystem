@@ -3,10 +3,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { GraduationCap, TrendingUp, Target, BarChart3, LogOut } from "lucide-react"
+import { TrendingUp, Target, BarChart3, LogOut } from "lucide-react"
 import { AdminBreadcrumbs } from "@/components/admin-breadcrumbs"
 import { AdminSidebar } from "@/components/admin-sidebar"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 
 export default function MarketingPage() {
@@ -22,11 +23,17 @@ export default function MarketingPage() {
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="h-8 w-8 text-primary" />
-              <span className="text-2xl font-serif font-bold text-primary">STICA</span>
+            <Link href="/" className="flex items-center gap-2">
+              <Image 
+                src="/marketeam-logo.png" 
+                alt="Marketeam Logo" 
+                width={48} 
+                height={48} 
+                className="h-12 w-12"
+              />
+              <span className="text-2xl font-serif font-bold text-primary">Marketeam</span>
               <span className="text-sm text-muted-foreground ml-2">Admin Dashboard</span>
-            </div>
+            </Link>
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">Welcome, Administrator</span>
               <Button variant="outline" size="sm" onClick={handleLogout}>
@@ -92,7 +99,7 @@ export default function MarketingPage() {
                 <Target className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">$24</div>
+                <div className="text-2xl font-bold">₱1,200</div>
                 <p className="text-xs text-muted-foreground">-12% from last month</p>
               </CardContent>
             </Card>
@@ -109,20 +116,20 @@ export default function MarketingPage() {
                 <div className="space-y-4">
                   {[
                     {
-                      name: "Digital Marketing Bootcamp",
+                      name: "Career Talk",
                       status: "Active",
                       leads: 234,
                       conversion: 72,
-                      budget: "$5,000",
+                      budget: "₱250,000",
                     },
-                    { name: "Tech Career Fair 2024", status: "Active", leads: 189, conversion: 65, budget: "$3,500" },
-                    { name: "Social Media Campaign", status: "Paused", leads: 156, conversion: 58, budget: "$2,000" },
+                    { name: "Tech Career Fair 2024", status: "Active", leads: 189, conversion: 65, budget: "₱175,000" },
+                    { name: "School Visit", status: "Paused", leads: 156, conversion: 58, budget: "₱100,000" },
                     {
-                      name: "Google Ads - Programming",
+                      name: "ML Tournament",
                       status: "Active",
                       leads: 298,
                       conversion: 74,
-                      budget: "$4,200",
+                      budget: "₱210,000",
                     },
                   ].map((campaign, index) => (
                     <div key={index} className="p-4 border border-border rounded-lg">
@@ -160,11 +167,11 @@ export default function MarketingPage() {
               <CardContent>
                 <div className="space-y-4">
                   {[
-                    { channel: "Google Ads", leads: 456, percentage: 35, cost: "$2,340" },
-                    { channel: "Social Media", leads: 298, percentage: 23, cost: "$1,890" },
-                    { channel: "Email Marketing", leads: 234, percentage: 18, cost: "$890" },
-                    { channel: "Referrals", leads: 189, percentage: 15, cost: "$0" },
-                    { channel: "Direct Traffic", leads: 123, percentage: 9, cost: "$0" },
+                    { channel: "Career Talk", leads: 456, percentage: 35, cost: "₱117,000" },
+                    { channel: "School Visit", leads: 298, percentage: 23, cost: "₱94,500" },
+                    { channel: "ML Tournament", leads: 234, percentage: 18, cost: "₱44,500" },
+                    { channel: "Referrals", leads: 189, percentage: 15, cost: "₱0" },
+                    { channel: "Direct Traffic", leads: 123, percentage: 9, cost: "₱0" },
                   ].map((channel, index) => (
                     <div key={index} className="space-y-2">
                       <div className="flex items-center justify-between">

@@ -8,8 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { GraduationCap, User, Lock, ArrowRight, AlertCircle, ArrowLeft } from "lucide-react"
+import { User, Lock, ArrowRight, AlertCircle, ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 
 export default function AdminLoginPage() {
@@ -52,8 +53,14 @@ export default function AdminLoginPage() {
           {/* Header */}
           <div className="text-center mb-8">
             <Link href="/" className="inline-flex items-center gap-2 mb-6">
-              <GraduationCap className="h-8 w-8 text-primary" />
-              <span className="text-2xl font-serif font-bold text-primary">STICA</span>
+              <Image 
+                src="/marketeam-logo.png" 
+                alt="Marketeam Logo" 
+                width={48} 
+                height={48} 
+                className="h-12 w-12"
+              />
+              <span className="text-2xl font-serif font-bold text-primary">Marketeam</span>
             </Link>
             <h1 className="text-3xl font-serif font-bold text-foreground mb-2">Admin Portal</h1>
             <p className="text-muted-foreground">Sign in to access the administrative dashboard</p>

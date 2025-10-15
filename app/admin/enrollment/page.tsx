@@ -3,10 +3,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { GraduationCap, Users, TrendingUp, Calendar, LogOut } from "lucide-react"
+import { Users, TrendingUp, Calendar, LogOut } from "lucide-react"
 import { AdminBreadcrumbs } from "@/components/admin-breadcrumbs"
 import { AdminSidebar } from "@/components/admin-sidebar"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 
 export default function EnrollmentPage() {
@@ -22,11 +23,17 @@ export default function EnrollmentPage() {
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="h-8 w-8 text-primary" />
-              <span className="text-2xl font-serif font-bold text-primary">STICA</span>
+            <Link href="/" className="flex items-center gap-2">
+              <Image 
+                src="/marketeam-logo.png" 
+                alt="Marketeam Logo" 
+                width={48} 
+                height={48} 
+                className="h-12 w-12"
+              />
+              <span className="text-2xl font-serif font-bold text-primary">Marketeam</span>
               <span className="text-sm text-muted-foreground ml-2">Admin Dashboard</span>
-            </div>
+            </Link>
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">Welcome, Administrator</span>
               <Button variant="outline" size="sm" onClick={handleLogout}>
@@ -108,11 +115,14 @@ export default function EnrollmentPage() {
               <CardContent>
                 <div className="space-y-4">
                   {[
-                    { program: "Software Development", enrolled: 156, capacity: 200, percentage: 78 },
-                    { program: "Data Science & Analytics", enrolled: 134, capacity: 150, percentage: 89 },
-                    { program: "Business Administration", enrolled: 189, capacity: 250, percentage: 76 },
-                    { program: "Digital Marketing", enrolled: 98, capacity: 120, percentage: 82 },
-                    { program: "Cybersecurity", enrolled: 87, capacity: 100, percentage: 87 },
+                    { program: "BS Information Technology (BSIT)", enrolled: 156, capacity: 200, percentage: 78 },
+                    { program: "BS Computer Science (BSCS)", enrolled: 134, capacity: 150, percentage: 89 },
+                    { program: "BS Business Administration (BSBA)", enrolled: 189, capacity: 250, percentage: 76 },
+                    { program: "BS Hospitality Management (BSHM)", enrolled: 98, capacity: 120, percentage: 82 },
+                    { program: "BS Tourism Management (BSTM)", enrolled: 87, capacity: 100, percentage: 87 },
+                    { program: "IT in Mobile App and Web Development", enrolled: 145, capacity: 180, percentage: 81 },
+                    { program: "Humanities and Social Sciences (HUMMS)", enrolled: 92, capacity: 120, percentage: 77 },
+                    { program: "Accountancy, Business, and Management (ABM)", enrolled: 134, capacity: 160, percentage: 84 },
                   ].map((program, index) => (
                     <div key={index} className="space-y-2">
                       <div className="flex items-center justify-between">
