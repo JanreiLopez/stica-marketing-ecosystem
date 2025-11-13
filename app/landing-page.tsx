@@ -3,13 +3,57 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Users, BookOpen, Award, ArrowRight, Menu } from "lucide-react"
+import { Users, BookOpen, Award, ArrowRight, Menu, LucideIcon } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+
+const Logo = ({ size = 48, className = "" }: { size?: number; className?: string }) => (
+  <Image
+    src="/marketeam-logo.png"
+    alt="Marketeam Logo"
+    width={size}
+    height={size}
+    className={className}
+  />
+)
+
+interface ProgramCardProps {
+  icon: LucideIcon
+  title: string
+  description: string
+  items: string[]
+  iconColor: "primary" | "secondary" | "accent"
+}
+
+const ProgramCard = ({ icon: Icon, title, description, items, iconColor }: ProgramCardProps) => {
+  const colorClasses = {
+    primary: { bg: "bg-primary/10", text: "text-primary" },
+    secondary: { bg: "bg-secondary/10", text: "text-secondary" },
+    accent: { bg: "bg-accent/10", text: "text-accent" },
+  }
+
+  const colors = colorClasses[iconColor]
+
+  return (
+    <Card className="hover:shadow-lg transition-shadow">
+      <CardHeader>
+        <div className={`w-12 h-12 ${colors.bg} rounded-lg flex items-center justify-center mb-4`}>
+          <Icon className={`h-6 w-6 ${colors.text}`} />
+        </div>
+        <CardTitle className="text-xl">{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-2 text-sm text-muted-foreground">
+          {items.map((item, index) => (
+            <li key={index}>• {item}</li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  )
+}
 
 export default function LandingPage() {
   const [isOpen, setIsOpen] = useState(false)
@@ -21,13 +65,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <Image 
-                src="/marketeam-logo.png" 
-                alt="Marketeam Logo" 
-                width={48} 
-                height={48} 
-                className="h-12 w-12"
-              />
+              <Logo size={48} className="h-12 w-12" />
               <span className="text-2xl font-serif font-bold text-primary">Marketeam</span>
             </Link>
 
@@ -122,8 +160,10 @@ export default function LandingPage() {
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
-              <Button variant="outline" size="lg">
-                Learn More
+              <Button variant="outline" size="lg" asChild>
+                <Link href="#programs">
+                  Learn More
+                </Link>
               </Button>
             </div>
           </div>
@@ -141,59 +181,42 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                  <BookOpen className="h-6 w-6 text-primary" />
-                </div>
-                <CardTitle className="text-xl">Technology Programs</CardTitle>
-                <CardDescription>Cutting-edge technology courses designed for the digital age</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>• Software Development</li>
-                  <li>• Data Science & Analytics</li>
-                  <li>• Cybersecurity</li>
-                  <li>• AI & Machine Learning</li>
-                </ul>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
-                  <Users className="h-6 w-6 text-secondary" />
-                </div>
-                <CardTitle className="text-xl">Business Programs</CardTitle>
-                <CardDescription>Comprehensive business education for future leaders</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>• Business Administration</li>
-                  <li>• Digital Marketing</li>
-                  <li>• Project Management</li>
-                  <li>• Entrepreneurship</li>
-                </ul>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4">
-                  <Award className="h-6 w-6 text-accent" />
-                </div>
-                <CardTitle className="text-xl">Certification Programs</CardTitle>
-                <CardDescription>Industry-recognized certifications to boost your career</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>• Professional Certificates</li>
-                  <li>• Industry Partnerships</li>
-                  <li>• Continuing Education</li>
-                  <li>• Skills Assessment</li>
-                </ul>
-              </CardContent>
-            </Card>
+            <ProgramCard
+              icon={BookOpen}
+              title="Technology Programs"
+              description="Cutting-edge technology courses designed for the digital age"
+              items={[
+                "Software Development",
+                "Data Science & Analytics",
+                "Cybersecurity",
+                "AI & Machine Learning",
+              ]}
+              iconColor="primary"
+            />
+            <ProgramCard
+              icon={Users}
+              title="Business Programs"
+              description="Comprehensive business education for future leaders"
+              items={[
+                "Business Administration",
+                "Digital Marketing",
+                "Project Management",
+                "Entrepreneurship",
+              ]}
+              iconColor="secondary"
+            />
+            <ProgramCard
+              icon={Award}
+              title="Certification Programs"
+              description="Industry-recognized certifications to boost your career"
+              items={[
+                "Professional Certificates",
+                "Industry Partnerships",
+                "Continuing Education",
+                "Skills Assessment",
+              ]}
+              iconColor="accent"
+            />
           </div>
         </div>
       </section>
@@ -205,78 +228,21 @@ export default function LandingPage() {
             <div className="text-center mb-8">
               <h2 className="text-3xl font-serif font-bold text-card-foreground mb-4">Ready to Get Started?</h2>
               <p className="text-muted-foreground">
-                Fill out the form below and our admissions team will contact you within 24 hours.
+                Submit an inquiry and our admissions team will contact you within 24 hours.
               </p>
             </div>
 
             <Card>
               <CardHeader>
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Image 
-                    src="/marketeam-logo.png" 
-                    alt="Marketeam Logo" 
-                    width={48} 
-                    height={48} 
-                    className="h-12 w-12"
-                  />
+                  <Logo size={48} className="h-12 w-12" />
                 </div>
                 <CardTitle className="text-center">Program Inquiry</CardTitle>
                 <CardDescription className="text-center">
                   Tell us about your educational goals and interests
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" placeholder="Enter your first name" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" placeholder="Enter your last name" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input id="email" type="email" placeholder="Enter your email address" />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" type="tel" placeholder="Enter your phone number" />
-                </div>
-
-                <div className="space-y-3">
-                  <Label>Programs of Interest</Label>
-                  <div className="grid md:grid-cols-2 gap-3">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="tech" />
-                      <Label htmlFor="tech" className="text-sm">
-                        Technology Programs
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="business" />
-                      <Label htmlFor="business" className="text-sm">
-                        Business Programs
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="cert" />
-                      <Label htmlFor="cert" className="text-sm">
-                        Certification Programs
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="other" />
-                      <Label htmlFor="other" className="text-sm">
-                        Other Programs
-                      </Label>
-                    </div>
-                  </div>
-                </div>
-
+              <CardContent>
                 <Button className="w-full bg-primary hover:bg-primary/90" size="lg" asChild>
                   <Link href="/inquiry">
                     Submit Inquiry
@@ -295,13 +261,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <Image 
-                  src="/marketeam-logo.png" 
-                  alt="Marketeam Logo" 
-                  width={36} 
-                  height={36} 
-                  className="h-9 w-9"
-                />
+                <Logo size={36} className="h-9 w-9" />
                 <span className="text-xl font-serif font-bold">Marketeam</span>
               </div>
               <p className="text-primary-foreground/80 text-sm">

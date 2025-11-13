@@ -1,10 +1,8 @@
 "use client"
 
 import { useEffect } from "react"
-import Link from "next/link"
-import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { LogOut, FileText, Users, BookOpen, TrendingUp } from "lucide-react"
+import { FileText, Users, BookOpen, TrendingUp } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -132,38 +130,11 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
-              <Image 
-                src="/marketeam-logo.png" 
-                alt="Marketeam Logo" 
-                width={48} 
-                height={48} 
-                className="h-12 w-12"
-              />
-              <span className="text-2xl font-serif font-bold text-primary">Marketeam</span>
-              <span className="text-sm text-muted-foreground ml-2">Admin Dashboard</span>
-            </Link>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground">Welcome, Administrator</span>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex">
-        {/* Sidebar Navigation */}
+        {/* Sidebar Navigation - Fixed */}
         <AdminSidebar onLogout={handleLogout} />
 
-        {/* Main Content */}
-        <main className="flex-1 p-6">
+        {/* Main Content - Account for fixed sidebar */}
+        <main className="ml-64 p-6">
           <AdminBreadcrumbs />
 
           <div className="mb-6">
@@ -205,7 +176,6 @@ export default function AdminDashboardPage() {
             </Card>
           </div>
         </main>
-      </div>
     </div>
   )
 }

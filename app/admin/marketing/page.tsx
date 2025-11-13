@@ -1,56 +1,111 @@
 "use client"
 
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { TrendingUp, Target, BarChart3, LogOut } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { TrendingUp, Target, BarChart3, Plus, X, CalendarIcon } from "lucide-react"
 import { AdminBreadcrumbs } from "@/components/admin-breadcrumbs"
 import { AdminSidebar } from "@/components/admin-sidebar"
-import Link from "next/link"
-import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { format } from "date-fns"
 
 export default function MarketingPage() {
   const router = useRouter()
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [eventTitles, setEventTitles] = useState<string[]>([])
+  const [formData, setFormData] = useState({
+    title: "",
+    selectedTitle: "",
+    leadsGenerated: "",
+    school: "",
+    budget: "",
+    date: undefined as Date | undefined,
+  })
+  const [marketingActivities, setMarketingActivities] = useState<Array<{
+    id: number
+    title: string
+    leadsGenerated: number
+    school: string
+    budget: string
+    date: string
+  }>>([])
 
   const handleLogout = () => {
     router.push("/admin/login")
   }
 
+  const handleTitleChange = (value: string) => {
+    setFormData(prev => ({ ...prev, title: value }))
+    // If the title doesn't exist in the list, add it when user types
+    if (value && !eventTitles.includes(value)) {
+      setEventTitles(prev => [...prev, value])
+    }
+  }
+
+  const handleSelectTitle = (value: string) => {
+    setFormData(prev => ({ ...prev, selectedTitle: value, title: value }))
+  }
+
+  const handleDeleteTitle = (titleToDelete: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEventTitles(prev => prev.filter(title => title !== titleToDelete))
+    if (formData.selectedTitle === titleToDelete) {
+      setFormData(prev => ({ ...prev, selectedTitle: "", title: "" }))
+    }
+  }
+
+  const handleSubmit = () => {
+    if (!formData.title || !formData.leadsGenerated || !formData.budget || !formData.date) {
+      return
+    }
+
+    const newActivity = {
+      id: marketingActivities.length + 1,
+      title: formData.title,
+      leadsGenerated: parseInt(formData.leadsGenerated) || 0,
+      school: formData.school || "",
+      budget: formData.budget,
+      date: format(formData.date, 'yyyy-MM-dd'),
+    }
+
+    setMarketingActivities(prev => [newActivity, ...prev])
+    
+    // Reset form
+    setFormData({
+      title: "",
+      selectedTitle: "",
+      leadsGenerated: "",
+      school: "",
+      budget: "",
+      date: undefined,
+    })
+    setIsDialogOpen(false)
+  }
+
+  // Get activity date strings for comparison
+  const activityDateStrings = marketingActivities.map(activity => activity.date)
+  
+  // Matcher function to check if a date has an activity
+  const hasActivity = (date: Date) => {
+    const dateString = format(date, 'yyyy-MM-dd')
+    return activityDateStrings.includes(dateString)
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
-              <Image 
-                src="/marketeam-logo.png" 
-                alt="Marketeam Logo" 
-                width={48} 
-                height={48} 
-                className="h-12 w-12"
-              />
-              <span className="text-2xl font-serif font-bold text-primary">Marketeam</span>
-              <span className="text-sm text-muted-foreground ml-2">Admin Dashboard</span>
-            </Link>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground">Welcome, Administrator</span>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex">
-        {/* Sidebar Navigation */}
+        {/* Sidebar Navigation - Fixed */}
         <AdminSidebar onLogout={handleLogout} />
 
-        {/* Main Content */}
-        <main className="flex-1 p-6">
+        {/* Main Content - Account for fixed sidebar */}
+        <main className="ml-64 p-6">
           <AdminBreadcrumbs />
           
           <div className="mb-6">
@@ -104,6 +159,80 @@ export default function MarketingPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Activities Calendar */}
+          <Card className="mb-8">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Activities Calendar</CardTitle>
+                  <CardDescription>Plan and review marketing events and campaigns</CardDescription>
+                </div>
+                <Button 
+                  className="bg-primary hover:bg-primary/90"
+                  onClick={() => setIsDialogOpen(true)}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Activity
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Calendar
+                captionLayout="dropdown-buttons"
+                numberOfMonths={1}
+                weekStartsOn={1}
+                className="rounded-md border w-full [--cell-size:--spacing(12)] md:[--cell-size:--spacing(14)] lg:[--cell-size:--spacing(16)]"
+                classNames={{
+                  dropdowns: "w-full flex items-center justify-center gap-2 text-base md:text-lg h-10",
+                }}
+                modifiers={{
+                  hasActivity,
+                }}
+                modifiersClassNames={{
+                  hasActivity: "bg-primary/20 border-primary border-2 font-semibold",
+                }}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Marketing Activities Table */}
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Marketing Activities</CardTitle>
+              <CardDescription>Track all marketing events and their performance</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {marketingActivities.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No marketing activities yet. Click "Add Activity" to create one.</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Leads Generated</TableHead>
+                      <TableHead>School</TableHead>
+                      <TableHead>Budget</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {marketingActivities.map((activity) => (
+                      <TableRow key={activity.id}>
+                        <TableCell className="font-medium">{activity.title}</TableCell>
+                        <TableCell>{activity.leadsGenerated}</TableCell>
+                        <TableCell>{activity.school || "-"}</TableCell>
+                        <TableCell>{activity.budget}</TableCell>
+                        <TableCell>{activity.date}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Campaign Performance */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -190,8 +319,155 @@ export default function MarketingPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Add Activity Dialog */}
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Add Marketing Activity</DialogTitle>
+                <DialogDescription>
+                  Create a new marketing event or campaign
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Title of Event</Label>
+                  <Input
+                    id="title"
+                    placeholder="Enter event title (e.g., Career Orientation)"
+                    value={formData.title}
+                    onChange={(e) => handleTitleChange(e.target.value)}
+                  />
+                </div>
+
+                {eventTitles.length > 0 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="select-title">Select Previous Title</Label>
+                    <Select value={formData.selectedTitle} onValueChange={handleSelectTitle}>
+                      <SelectTrigger id="select-title">
+                        <SelectValue placeholder="Select a previous title" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {eventTitles.map((title) => (
+                          <SelectItem key={title} value={title}>
+                            <div className="flex items-center justify-between w-full">
+                              <span>{title}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 ml-2 hover:bg-destructive hover:text-destructive-foreground"
+                                onClick={(e) => handleDeleteTitle(title, e)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {eventTitles.map((title) => (
+                        <Badge key={title} variant="secondary" className="flex items-center gap-1">
+                          {title}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={(e) => handleDeleteTitle(title, e)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="leads">Leads Generated</Label>
+                  <Input
+                    id="leads"
+                    type="number"
+                    placeholder="Enter number of leads"
+                    value={formData.leadsGenerated}
+                    onChange={(e) => setFormData(prev => ({ ...prev, leadsGenerated: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="school">School</Label>
+                  <Input
+                    id="school"
+                    placeholder="Enter school name"
+                    value={formData.school}
+                    onChange={(e) => setFormData(prev => ({ ...prev, school: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="date">Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="date"
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.date ? format(formData.date, "PPP") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={formData.date}
+                        onSelect={(date) => setFormData(prev => ({ ...prev, date }))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="budget">Budget</Label>
+                  <Input
+                    id="budget"
+                    placeholder="Enter budget (e.g., ₱250,000)"
+                    value={formData.budget}
+                    onChange={(e) => setFormData(prev => ({ ...prev, budget: e.target.value }))}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setIsDialogOpen(false)
+                      setFormData({
+                        title: "",
+                        selectedTitle: "",
+                        leadsGenerated: "",
+                        school: "",
+                        budget: "",
+                        date: undefined,
+                      })
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleSubmit}
+                    className="bg-primary hover:bg-primary/90"
+                    disabled={!formData.title || !formData.leadsGenerated || !formData.budget || !formData.date}
+                  >
+                    Add Activity
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </main>
-      </div>
     </div>
   )
 }

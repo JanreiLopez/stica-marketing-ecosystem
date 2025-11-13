@@ -13,19 +13,33 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AdminBreadcrumbs } from "@/components/admin-breadcrumbs"
 import { AdminSidebar } from "@/components/admin-sidebar"
-import { Search, Eye, MessageSquare, Phone, Mail, LogOut, Edit, CheckCircle, AlertCircle } from "lucide-react"
-import Link from "next/link"
-import Image from "next/image"
+import { Search, Eye, MessageSquare, Phone, Mail, Edit, CheckCircle, AlertCircle, ArrowRight, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export default function InquiriesPage() {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [editingInquiry, setEditingInquiry] = useState<any>(null)
+  const [editingInquiryId, setEditingInquiryId] = useState<number | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [updateMessage, setUpdateMessage] = useState("")
   const [isUpdating, setIsUpdating] = useState(false)
+  const [isInquiryDialogOpen, setIsInquiryDialogOpen] = useState(false)
+  const [inquiryFormData, setInquiryFormData] = useState({
+    inquiryType: "",
+    studentType: "",
+    firstName: "",
+    lastName: "",
+    presentSchool: "",
+    email: "",
+    phone: "",
+    programs: [] as string[],
+    howDidYouFindOut: [] as string[],
+    referralSource: [] as string[],
+    eventsDescription: "",
+    othersSpecify: "",
+  })
 
   const [inquiries, setInquiries] = useState([
     {
@@ -97,12 +111,56 @@ export default function InquiriesPage() {
   ])
 
   const handleEditInquiry = (inquiry: any) => {
-    setEditingInquiry(inquiry)
+    // Parse name into first and last name
+    const nameParts = inquiry.name.split(" ")
+    const firstName = nameParts[0] || ""
+    const lastName = nameParts.slice(1).join(" ") || ""
+    
+    // Parse program string back into array
+    const programMap: { [key: string]: string } = {
+      "BS Information Technology": "bsit",
+      "BS Computer Science": "bscs",
+      "BS Hospitality Management": "bshm",
+      "BS Tourism Management": "bstm",
+      "BS Business Administration": "bsba",
+      "IT in Mobile App and Web Development": "it-mobile",
+      "Humanities and Social Sciences (HUMMS)": "humms",
+      "Accountancy, Business, and Management (ABM)": "abm",
+    }
+    
+    const programs = inquiry.program
+      .split(", ")
+      .map((p: string) => programMap[p.trim()])
+      .filter((p: string) => p)
+    
+    // Map studentType
+    const studentType = inquiry.studentType === "College" ? "tertiary" : "senior-high"
+    
+    // Parse phone number - remove +63 prefix and spaces, keep only digits
+    const phone = inquiry.phone.replace(/[^\d]/g, "")
+    
+    // Populate form with inquiry data
+    setInquiryFormData({
+      inquiryType: "", // Not stored in inquiry, default to empty
+      studentType: studentType,
+      firstName: firstName,
+      lastName: lastName,
+      presentSchool: "", // Not stored in inquiry, default to empty
+      email: inquiry.email,
+      phone: phone,
+      programs: programs,
+      howDidYouFindOut: [], // Not stored in inquiry, default to empty
+      referralSource: [], // Not stored in inquiry, default to empty
+      eventsDescription: "", // Not stored in inquiry, default to empty
+      othersSpecify: "", // Not stored in inquiry, default to empty
+    })
+    
+    setEditingInquiryId(inquiry.id)
     setIsEditDialogOpen(true)
   }
 
   const handleUpdateInquiry = async () => {
-    if (!editingInquiry) return
+    if (!editingInquiryId) return
     
     setIsUpdating(true)
     
@@ -110,10 +168,17 @@ export default function InquiriesPage() {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000))
       
-      // Update the inquiry in state
+      // Update the inquiry in state with form data
       setInquiries(prev => prev.map(inquiry => 
-        inquiry.id === editingInquiry.id 
-          ? { ...inquiry, status: editingInquiry.status, studentType: editingInquiry.studentType, notes: editingInquiry.notes }
+        inquiry.id === editingInquiryId 
+          ? { 
+              ...inquiry, // Preserve status, date, notes, and other fields
+              name: `${inquiryFormData.firstName} ${inquiryFormData.lastName}`,
+              email: inquiryFormData.email,
+              phone: inquiryFormData.phone,
+              program: inquiryFormData.programs.join(", ") || "Not specified",
+              studentType: inquiryFormData.studentType === "tertiary" ? "College" : "Senior High",
+            }
           : inquiry
       ))
       
@@ -121,7 +186,22 @@ export default function InquiriesPage() {
       setTimeout(() => {
         setIsEditDialogOpen(false)
         setUpdateMessage("")
-        setEditingInquiry(null)
+        setEditingInquiryId(null)
+        // Reset form
+        setInquiryFormData({
+          inquiryType: "",
+          studentType: "",
+          firstName: "",
+          lastName: "",
+          presentSchool: "",
+          email: "",
+          phone: "",
+          programs: [],
+          howDidYouFindOut: [],
+          referralSource: [],
+          eventsDescription: "",
+          othersSpecify: "",
+        })
       }, 1500)
       
     } catch (error) {
@@ -157,41 +237,75 @@ export default function InquiriesPage() {
     }
   }
 
+  const handleProgramChange = (programId: string, checked: boolean) => {
+    setInquiryFormData(prev => ({
+      ...prev,
+      programs: checked 
+        ? [...prev.programs, programId]
+        : prev.programs.filter(id => id !== programId)
+    }))
+  }
+
+  const handleHowDidYouFindOutChange = (optionId: string, checked: boolean) => {
+    setInquiryFormData(prev => ({
+      ...prev,
+      howDidYouFindOut: checked 
+        ? [...prev.howDidYouFindOut, optionId]
+        : prev.howDidYouFindOut.filter(id => id !== optionId)
+    }))
+  }
+
+  const handleReferralChange = (optionId: string, checked: boolean) => {
+    setInquiryFormData(prev => ({
+      ...prev,
+      referralSource: checked 
+        ? [...prev.referralSource, optionId]
+        : prev.referralSource.filter(id => id !== optionId)
+    }))
+  }
+
+  const handleSubmitInquiry = () => {
+    // Here you would typically submit the form data to your backend
+    console.log("Inquiry submitted:", inquiryFormData)
+    // Add the new inquiry to the list
+    const newInquiry = {
+      id: inquiries.length + 1,
+      name: `${inquiryFormData.firstName} ${inquiryFormData.lastName}`,
+      email: inquiryFormData.email,
+      phone: inquiryFormData.phone,
+      program: inquiryFormData.programs.join(", ") || "Not specified",
+      status: "New",
+      date: new Date().toISOString().split('T')[0],
+      studentType: inquiryFormData.studentType === "tertiary" ? "College" : "Senior High",
+      notes: "",
+    }
+    setInquiries(prev => [newInquiry, ...prev])
+    // Reset form and close dialog
+    setInquiryFormData({
+      inquiryType: "",
+      studentType: "",
+      firstName: "",
+      lastName: "",
+      presentSchool: "",
+      email: "",
+      phone: "",
+      programs: [],
+      howDidYouFindOut: [],
+      referralSource: [],
+      eventsDescription: "",
+      othersSpecify: "",
+    })
+    setIsInquiryDialogOpen(false)
+  }
+
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
-              <Image 
-                src="/marketeam-logo.png" 
-                alt="Marketeam Logo" 
-                width={48} 
-                height={48} 
-                className="h-12 w-12"
-              />
-              <span className="text-2xl font-serif font-bold text-primary">Marketeam</span>
-              <span className="text-sm text-muted-foreground ml-2">Admin Dashboard</span>
-            </Link>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground">Welcome, Administrator</span>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex">
-        {/* Sidebar Navigation */}
+        {/* Sidebar Navigation - Fixed */}
         <AdminSidebar onLogout={handleLogout} />
 
-        {/* Main Content */}
-        <main className="flex-1 p-6">
+        {/* Main Content - Account for fixed sidebar */}
+        <main className="ml-64 p-6">
           <AdminBreadcrumbs />
           
           <div className="mb-6">
@@ -246,29 +360,41 @@ export default function InquiriesPage() {
             </Card>
           </div>
 
-          {/* Filters */}
-          <div className="flex items-center gap-4 mb-6">
-            <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search inquiries..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+          {/* Actions Bar */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="relative w-72">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search inquiries..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="new">New</SelectItem>
+                  <SelectItem value="contacted">Contacted</SelectItem>
+                  <SelectItem value="qualified">Qualified</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="new">New</SelectItem>
-                <SelectItem value="contacted">Contacted</SelectItem>
-                <SelectItem value="qualified">Qualified</SelectItem>
-              </SelectContent>
-            </Select>
+            <Button 
+              className="bg-primary hover:bg-primary/90"
+              onClick={() => setIsInquiryDialogOpen(true)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Inquiry
+            </Button>
           </div>
+
+          {/* Filters */}
+          {/* Moved status filter next to search in actions bar */}
 
           {/* Inquiries Table */}
           <Card>
@@ -344,81 +470,541 @@ export default function InquiriesPage() {
             </CardContent>
           </Card>
         </main>
-      </div>
 
-      {/* Edit Inquiry Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+      {/* Edit Inquiry Dialog - Same as Add Inquiry */}
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+        setIsEditDialogOpen(open)
+        if (!open) {
+          setEditingInquiryId(null)
+          setUpdateMessage("")
+          // Reset form
+          setInquiryFormData({
+            inquiryType: "",
+            studentType: "",
+            firstName: "",
+            lastName: "",
+            presentSchool: "",
+            email: "",
+            phone: "",
+            programs: [],
+            howDidYouFindOut: [],
+            referralSource: [],
+            eventsDescription: "",
+            othersSpecify: "",
+          })
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Inquiry</DialogTitle>
             <DialogDescription>
-              Update the status and priority for {editingInquiry?.name}
+              Update the inquiry information
             </DialogDescription>
           </DialogHeader>
           
-          {editingInquiry && (
+          {updateMessage && (
+            <Alert variant={updateMessage.includes("Error") ? "destructive" : "default"}>
+              {updateMessage.includes("Error") ? (
+                <AlertCircle className="h-4 w-4" />
+              ) : (
+                <CheckCircle className="h-4 w-4" />
+              )}
+              <AlertDescription>{updateMessage}</AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="space-y-6">
+            {/* Type of Inquiry and Type of Student */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold text-foreground uppercase">TYPE OF INQUIRY</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="edit-inquiry-online"
+                      name="edit-inquiryType"
+                      value="online"
+                      checked={inquiryFormData.inquiryType === "online"}
+                      onChange={(e) => setInquiryFormData(prev => ({ ...prev, inquiryType: e.target.value }))}
+                      className="w-4 h-4 border-2 border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                    <Label htmlFor="edit-inquiry-online" className="text-sm">Online</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="edit-inquiry-walk-in"
+                      name="edit-inquiryType"
+                      value="walk-in"
+                      checked={inquiryFormData.inquiryType === "walk-in"}
+                      onChange={(e) => setInquiryFormData(prev => ({ ...prev, inquiryType: e.target.value }))}
+                      className="w-4 h-4 border-2 border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                    <Label htmlFor="edit-inquiry-walk-in" className="text-sm">Walk-in</Label>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold text-foreground uppercase">TYPE OF STUDENT</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="edit-inquiry-senior-high"
+                      name="edit-studentType"
+                      value="senior-high"
+                      checked={inquiryFormData.studentType === "senior-high"}
+                      onChange={(e) => setInquiryFormData(prev => ({ ...prev, studentType: e.target.value }))}
+                      className="w-4 h-4 border-2 border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                    <Label htmlFor="edit-inquiry-senior-high" className="text-sm">Senior High School</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="edit-inquiry-tertiary"
+                      name="edit-studentType"
+                      value="tertiary"
+                      checked={inquiryFormData.studentType === "tertiary"}
+                      onChange={(e) => setInquiryFormData(prev => ({ ...prev, studentType: e.target.value }))}
+                      className="w-4 h-4 border-2 border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                    <Label htmlFor="edit-inquiry-tertiary" className="text-sm">Tertiary</Label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Personal Information Section */}
             <div className="space-y-4">
+              <Label className="text-sm font-semibold text-foreground uppercase">PERSONAL INFORMATION</Label>
+              
+              <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select 
-                  value={editingInquiry.status} 
-                  onValueChange={(value) => setEditingInquiry({...editingInquiry, status: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="New">New</SelectItem>
-                    <SelectItem value="Contacted">Contacted</SelectItem>
-                    <SelectItem value="Qualified">Qualified</SelectItem>
-                    <SelectItem value="Enrolled">Enrolled</SelectItem>
-                    <SelectItem value="Rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <Label htmlFor="edit-inquiry-firstName">First Name</Label>
+                  <Input 
+                    id="edit-inquiry-firstName" 
+                    placeholder="Enter your first name" 
+                    value={inquiryFormData.firstName}
+                    onChange={(e) => setInquiryFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                    className="border-2 border-gray-400"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-inquiry-lastName">Last Name</Label>
+                  <Input 
+                    id="edit-inquiry-lastName" 
+                    placeholder="Enter your last name" 
+                    value={inquiryFormData.lastName}
+                    onChange={(e) => setInquiryFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                    className="border-2 border-gray-400"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="studentType">Type of Student</Label>
-                <Select 
-                  value={editingInquiry.studentType} 
-                  onValueChange={(value) => setEditingInquiry({...editingInquiry, studentType: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="College">College</SelectItem>
-                    <SelectItem value="High School">High School</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={editingInquiry.notes}
-                  onChange={(e) => setEditingInquiry({...editingInquiry, notes: e.target.value})}
-                  placeholder="Add notes about this inquiry..."
-                  rows={3}
+                <Label htmlFor="edit-inquiry-presentSchool">Present School</Label>
+                <Input 
+                  id="edit-inquiry-presentSchool" 
+                  placeholder="Enter your current school" 
+                  value={inquiryFormData.presentSchool}
+                  onChange={(e) => setInquiryFormData(prev => ({ ...prev, presentSchool: e.target.value }))}
+                  className="border-2 border-gray-400"
                 />
               </div>
 
-              {updateMessage && (
-                <Alert variant={updateMessage.includes("Error") ? "destructive" : "default"}>
-                  {updateMessage.includes("Error") ? (
-                    <AlertCircle className="h-4 w-4" />
-                  ) : (
-                    <CheckCircle className="h-4 w-4" />
-                  )}
-                  <AlertDescription>{updateMessage}</AlertDescription>
-                </Alert>
+              <div className="space-y-2">
+                <Label htmlFor="edit-inquiry-email">Email Address</Label>
+                <Input 
+                  id="edit-inquiry-email" 
+                  type="email" 
+                  placeholder="Enter your email address" 
+                  value={inquiryFormData.email}
+                  onChange={(e) => setInquiryFormData(prev => ({ ...prev, email: e.target.value }))}
+                  className="border-2 border-gray-400"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-inquiry-phone">Phone Number</Label>
+                <Input 
+                  id="edit-inquiry-phone" 
+                  type="tel" 
+                  placeholder="Enter your phone number" 
+                  value={inquiryFormData.phone}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (/^\d*$/.test(value)) {
+                      setInquiryFormData(prev => ({ ...prev, phone: value }));
+                    }
+                  }}
+                  className="border-2 border-gray-400"
+                />
+              </div>
+            </div>
+
+            {/* Programs of Interest */}
+            <div className="space-y-4">
+              <Label className="text-sm font-semibold text-foreground uppercase">PROGRAMS OF INTEREST</Label>
+              
+              {inquiryFormData.studentType === "tertiary" && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-foreground">College Programs</h4>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="edit-inquiry-bsit" 
+                        checked={inquiryFormData.programs.includes('bsit')}
+                        onCheckedChange={(checked) => handleProgramChange('bsit', checked as boolean)}
+                        className="border-2 border-gray-400"
+                      />
+                      <Label htmlFor="edit-inquiry-bsit" className="text-sm">
+                        BS Information Technology (BSIT)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="edit-inquiry-bscs" 
+                        checked={inquiryFormData.programs.includes('bscs')}
+                        onCheckedChange={(checked) => handleProgramChange('bscs', checked as boolean)}
+                        className="border-2 border-gray-400"
+                      />
+                      <Label htmlFor="edit-inquiry-bscs" className="text-sm">
+                        BS Computer Science (BSCS)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="edit-inquiry-bshm" 
+                        checked={inquiryFormData.programs.includes('bshm')}
+                        onCheckedChange={(checked) => handleProgramChange('bshm', checked as boolean)}
+                        className="border-2 border-gray-400"
+                      />
+                      <Label htmlFor="edit-inquiry-bshm" className="text-sm">
+                        BS Hospitality Management (BSHM)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="edit-inquiry-bstm" 
+                        checked={inquiryFormData.programs.includes('bstm')}
+                        onCheckedChange={(checked) => handleProgramChange('bstm', checked as boolean)}
+                        className="border-2 border-gray-400"
+                      />
+                      <Label htmlFor="edit-inquiry-bstm" className="text-sm">
+                        BS Tourism Management (BSTM)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="edit-inquiry-bsba" 
+                        checked={inquiryFormData.programs.includes('bsba')}
+                        onCheckedChange={(checked) => handleProgramChange('bsba', checked as boolean)}
+                        className="border-2 border-gray-400"
+                      />
+                      <Label htmlFor="edit-inquiry-bsba" className="text-sm">
+                        BS Business Administration (BSBA)
+                      </Label>
+                    </div>
+                  </div>
+                </div>
               )}
 
-              <div className="flex justify-end gap-2">
+              {inquiryFormData.studentType === "senior-high" && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-foreground">Senior High School Programs</h4>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="edit-inquiry-it-mobile" 
+                        checked={inquiryFormData.programs.includes('it-mobile')}
+                        onCheckedChange={(checked) => handleProgramChange('it-mobile', checked as boolean)}
+                        className="border-2 border-gray-400"
+                      />
+                      <Label htmlFor="edit-inquiry-it-mobile" className="text-sm">
+                        IT in Mobile App and Web Development
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="edit-inquiry-humms" 
+                        checked={inquiryFormData.programs.includes('humms')}
+                        onCheckedChange={(checked) => handleProgramChange('humms', checked as boolean)}
+                        className="border-2 border-gray-400"
+                      />
+                      <Label htmlFor="edit-inquiry-humms" className="text-sm">
+                        Humanities and Social Sciences (HUMMS)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="edit-inquiry-abm" 
+                        checked={inquiryFormData.programs.includes('abm')}
+                        onCheckedChange={(checked) => handleProgramChange('abm', checked as boolean)}
+                        className="border-2 border-gray-400"
+                      />
+                      <Label htmlFor="edit-inquiry-abm" className="text-sm">
+                        Accountancy, Business, and Management (ABM)
+                      </Label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!inquiryFormData.studentType && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Please select your student type above to see available programs.</p>
+                </div>
+              )}
+            </div>
+
+            {/* How Did You Find Out About STI Section */}
+            <div className="space-y-4">
+              <Label className="text-sm font-semibold text-foreground uppercase">HOW DID YOU FIND OUT ABOUT STI?</Label>
+              
+              <div className="space-y-4">
+                {/* Main Options */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="edit-inquiry-tv" 
+                      checked={inquiryFormData.howDidYouFindOut.includes('tv')}
+                      onCheckedChange={(checked) => handleHowDidYouFindOutChange('tv', checked as boolean)}
+                      className="border-2 border-gray-400"
+                    />
+                    <Label htmlFor="edit-inquiry-tv" className="text-sm">TV</Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="edit-inquiry-outdoor" 
+                      checked={inquiryFormData.howDidYouFindOut.includes('outdoor')}
+                      onCheckedChange={(checked) => handleHowDidYouFindOutChange('outdoor', checked as boolean)}
+                      className="border-2 border-gray-400"
+                    />
+                    <Label htmlFor="edit-inquiry-outdoor" className="text-sm">OUTDOOR (Billboard, Banners, Streamers)</Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="edit-inquiry-radio" 
+                      checked={inquiryFormData.howDidYouFindOut.includes('radio')}
+                      onCheckedChange={(checked) => handleHowDidYouFindOutChange('radio', checked as boolean)}
+                      className="border-2 border-gray-400"
+                    />
+                    <Label htmlFor="edit-inquiry-radio" className="text-sm">RADIO</Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="edit-inquiry-print" 
+                      checked={inquiryFormData.howDidYouFindOut.includes('print')}
+                      onCheckedChange={(checked) => handleHowDidYouFindOutChange('print', checked as boolean)}
+                      className="border-2 border-gray-400"
+                    />
+                    <Label htmlFor="edit-inquiry-print" className="text-sm">PRINT (Newspaper)</Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="edit-inquiry-magazine" 
+                      checked={inquiryFormData.howDidYouFindOut.includes('magazine')}
+                      onCheckedChange={(checked) => handleHowDidYouFindOutChange('magazine', checked as boolean)}
+                      className="border-2 border-gray-400"
+                    />
+                    <Label htmlFor="edit-inquiry-magazine" className="text-sm">MAGAZINE/FLYERS</Label>
+                  </div>
+                </div>
+
+                {/* ONLINE Section */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="edit-inquiry-online-find" 
+                      checked={inquiryFormData.howDidYouFindOut.includes('online')}
+                      onCheckedChange={(checked) => handleHowDidYouFindOutChange('online', checked as boolean)}
+                      className="border-2 border-gray-400"
+                    />
+                    <Label htmlFor="edit-inquiry-online-find" className="text-sm font-semibold">ONLINE</Label>
+                  </div>
+                  
+                  {inquiryFormData.howDidYouFindOut.includes('online') && (
+                    <div className="ml-6 space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="edit-inquiry-website" 
+                          checked={inquiryFormData.howDidYouFindOut.includes('website')}
+                          onCheckedChange={(checked) => handleHowDidYouFindOutChange('website', checked as boolean)}
+                          className="border-2 border-gray-400"
+                        />
+                        <Label htmlFor="edit-inquiry-website" className="text-sm">Website</Label>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="edit-inquiry-facebook" 
+                          checked={inquiryFormData.howDidYouFindOut.includes('facebook')}
+                          onCheckedChange={(checked) => handleHowDidYouFindOutChange('facebook', checked as boolean)}
+                          className="border-2 border-gray-400"
+                        />
+                        <Label htmlFor="edit-inquiry-facebook" className="text-sm">Facebook</Label>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="edit-inquiry-others-online" 
+                          checked={inquiryFormData.howDidYouFindOut.includes('others-online')}
+                          onCheckedChange={(checked) => handleHowDidYouFindOutChange('others-online', checked as boolean)}
+                          className="border-2 border-gray-400"
+                        />
+                        <Label htmlFor="edit-inquiry-others-online" className="text-sm">Others</Label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* EVENTS Section */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="edit-inquiry-events" 
+                      checked={inquiryFormData.howDidYouFindOut.includes('events')}
+                      onCheckedChange={(checked) => handleHowDidYouFindOutChange('events', checked as boolean)}
+                      className="border-2 border-gray-400"
+                    />
+                    <Label htmlFor="edit-inquiry-events" className="text-sm">EVENTS</Label>
+                  </div>
+                  
+                  {inquiryFormData.howDidYouFindOut.includes('events') && (
+                    <div className="ml-6">
+                      <Input 
+                        placeholder="Please describe the event" 
+                        value={inquiryFormData.eventsDescription}
+                        onChange={(e) => setInquiryFormData(prev => ({ ...prev, eventsDescription: e.target.value }))}
+                        className="border-2 border-gray-400"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* REFERRAL Section */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="edit-inquiry-referral" 
+                      checked={inquiryFormData.howDidYouFindOut.includes('referral')}
+                      onCheckedChange={(checked) => handleHowDidYouFindOutChange('referral', checked as boolean)}
+                      className="border-2 border-gray-400"
+                    />
+                    <Label htmlFor="edit-inquiry-referral" className="text-sm font-semibold">REFERRAL</Label>
+                  </div>
+                  
+                  {inquiryFormData.howDidYouFindOut.includes('referral') && (
+                    <div className="ml-6 space-y-2">
+                      <div className="grid md:grid-cols-2 gap-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="edit-inquiry-sti-students" 
+                            checked={inquiryFormData.referralSource.includes('sti-students')}
+                            onCheckedChange={(checked) => handleReferralChange('sti-students', checked as boolean)}
+                            className="border-2 border-gray-400"
+                          />
+                          <Label htmlFor="edit-inquiry-sti-students" className="text-sm">STI Students</Label>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="edit-inquiry-sti-alumni" 
+                            checked={inquiryFormData.referralSource.includes('sti-alumni')}
+                            onCheckedChange={(checked) => handleReferralChange('sti-alumni', checked as boolean)}
+                            className="border-2 border-gray-400"
+                          />
+                          <Label htmlFor="edit-inquiry-sti-alumni" className="text-sm">STI Alumni</Label>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="edit-inquiry-friends" 
+                            checked={inquiryFormData.referralSource.includes('friends')}
+                            onCheckedChange={(checked) => handleReferralChange('friends', checked as boolean)}
+                            className="border-2 border-gray-400"
+                          />
+                          <Label htmlFor="edit-inquiry-friends" className="text-sm">Friends</Label>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="edit-inquiry-parents" 
+                            checked={inquiryFormData.referralSource.includes('parents')}
+                            onCheckedChange={(checked) => handleReferralChange('parents', checked as boolean)}
+                            className="border-2 border-gray-400"
+                          />
+                          <Label htmlFor="edit-inquiry-parents" className="text-sm">Parents</Label>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="edit-inquiry-relatives" 
+                            checked={inquiryFormData.referralSource.includes('relatives')}
+                            onCheckedChange={(checked) => handleReferralChange('relatives', checked as boolean)}
+                            className="border-2 border-gray-400"
+                          />
+                          <Label htmlFor="edit-inquiry-relatives" className="text-sm">Relatives</Label>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="edit-inquiry-others-referral" 
+                            checked={inquiryFormData.referralSource.includes('others-referral')}
+                            onCheckedChange={(checked) => handleReferralChange('others-referral', checked as boolean)}
+                            className="border-2 border-gray-400"
+                          />
+                          <Label htmlFor="edit-inquiry-others-referral" className="text-sm">Others: (Pls specify)</Label>
+                        </div>
+                      </div>
+                      
+                      {inquiryFormData.referralSource.includes('others-referral') && (
+                        <div className="mt-2">
+                          <Input 
+                            placeholder="Please specify" 
+                            value={inquiryFormData.othersSpecify}
+                            onChange={(e) => setInquiryFormData(prev => ({ ...prev, othersSpecify: e.target.value }))}
+                            className="border-2 border-gray-400"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-6">
                 <Button 
                   variant="outline" 
-                  onClick={() => setIsEditDialogOpen(false)}
+              onClick={() => {
+                setIsEditDialogOpen(false)
+                setEditingInquiryId(null)
+                setUpdateMessage("")
+                // Reset form
+                setInquiryFormData({
+                  inquiryType: "",
+                  studentType: "",
+                  firstName: "",
+                  lastName: "",
+                  presentSchool: "",
+                  email: "",
+                  phone: "",
+                  programs: [],
+                  howDidYouFindOut: [],
+                  referralSource: [],
+                  eventsDescription: "",
+                  othersSpecify: "",
+                })
+              }}
                   disabled={isUpdating}
                 >
                   Cancel
@@ -426,12 +1012,509 @@ export default function InquiriesPage() {
                 <Button 
                   onClick={handleUpdateInquiry}
                   disabled={isUpdating}
+              className="bg-primary hover:bg-primary/90"
                 >
                   {isUpdating ? "Updating..." : "Update Inquiry"}
+              <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Program Inquiry Dialog */}
+      <Dialog open={isInquiryDialogOpen} onOpenChange={setIsInquiryDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Program Inquiry</DialogTitle>
+            <DialogDescription>
+              Tell us about your educational goals and interests
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Type of Inquiry and Type of Student */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold text-foreground uppercase">TYPE OF INQUIRY</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="inquiry-online"
+                      name="inquiryType"
+                      value="online"
+                      checked={inquiryFormData.inquiryType === "online"}
+                      onChange={(e) => setInquiryFormData(prev => ({ ...prev, inquiryType: e.target.value }))}
+                      className="w-4 h-4 border-2 border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                    <Label htmlFor="inquiry-online" className="text-sm">Online</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="inquiry-walk-in"
+                      name="inquiryType"
+                      value="walk-in"
+                      checked={inquiryFormData.inquiryType === "walk-in"}
+                      onChange={(e) => setInquiryFormData(prev => ({ ...prev, inquiryType: e.target.value }))}
+                      className="w-4 h-4 border-2 border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                    <Label htmlFor="inquiry-walk-in" className="text-sm">Walk-in</Label>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold text-foreground uppercase">TYPE OF STUDENT</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="inquiry-senior-high"
+                      name="studentType"
+                      value="senior-high"
+                      checked={inquiryFormData.studentType === "senior-high"}
+                      onChange={(e) => setInquiryFormData(prev => ({ ...prev, studentType: e.target.value }))}
+                      className="w-4 h-4 border-2 border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                    <Label htmlFor="inquiry-senior-high" className="text-sm">Senior High School</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="inquiry-tertiary"
+                      name="studentType"
+                      value="tertiary"
+                      checked={inquiryFormData.studentType === "tertiary"}
+                      onChange={(e) => setInquiryFormData(prev => ({ ...prev, studentType: e.target.value }))}
+                      className="w-4 h-4 border-2 border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                    <Label htmlFor="inquiry-tertiary" className="text-sm">Tertiary</Label>
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
+
+            {/* Personal Information Section */}
+            <div className="space-y-4">
+              <Label className="text-sm font-semibold text-foreground uppercase">PERSONAL INFORMATION</Label>
+              
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="inquiry-firstName">First Name</Label>
+                  <Input 
+                    id="inquiry-firstName" 
+                    placeholder="Enter your first name" 
+                    value={inquiryFormData.firstName}
+                    onChange={(e) => setInquiryFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                    className="border-2 border-gray-400"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="inquiry-lastName">Last Name</Label>
+                  <Input 
+                    id="inquiry-lastName" 
+                    placeholder="Enter your last name" 
+                    value={inquiryFormData.lastName}
+                    onChange={(e) => setInquiryFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                    className="border-2 border-gray-400"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="inquiry-presentSchool">Present School</Label>
+                <Input 
+                  id="inquiry-presentSchool" 
+                  placeholder="Enter your current school" 
+                  value={inquiryFormData.presentSchool}
+                  onChange={(e) => setInquiryFormData(prev => ({ ...prev, presentSchool: e.target.value }))}
+                  className="border-2 border-gray-400"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="inquiry-email">Email Address</Label>
+                <Input 
+                  id="inquiry-email" 
+                  type="email" 
+                  placeholder="Enter your email address" 
+                  value={inquiryFormData.email}
+                  onChange={(e) => setInquiryFormData(prev => ({ ...prev, email: e.target.value }))}
+                  className="border-2 border-gray-400"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="inquiry-phone">Phone Number</Label>
+                <Input 
+                  id="inquiry-phone" 
+                  type="tel" 
+                  placeholder="Enter your phone number" 
+                  value={inquiryFormData.phone}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (/^\d*$/.test(value)) {
+                      setInquiryFormData(prev => ({ ...prev, phone: value }));
+                    }
+                  }}
+                  className="border-2 border-gray-400"
+                />
+              </div>
+            </div>
+
+            {/* Programs of Interest */}
+            <div className="space-y-4">
+              <Label className="text-sm font-semibold text-foreground uppercase">PROGRAMS OF INTEREST</Label>
+              
+              {inquiryFormData.studentType === "tertiary" && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-foreground">College Programs</h4>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="inquiry-bsit" 
+                        checked={inquiryFormData.programs.includes('bsit')}
+                        onCheckedChange={(checked) => handleProgramChange('bsit', checked as boolean)}
+                        className="border-2 border-gray-400"
+                      />
+                      <Label htmlFor="inquiry-bsit" className="text-sm">
+                        BS Information Technology (BSIT)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="inquiry-bscs" 
+                        checked={inquiryFormData.programs.includes('bscs')}
+                        onCheckedChange={(checked) => handleProgramChange('bscs', checked as boolean)}
+                        className="border-2 border-gray-400"
+                      />
+                      <Label htmlFor="inquiry-bscs" className="text-sm">
+                        BS Computer Science (BSCS)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="inquiry-bshm" 
+                        checked={inquiryFormData.programs.includes('bshm')}
+                        onCheckedChange={(checked) => handleProgramChange('bshm', checked as boolean)}
+                        className="border-2 border-gray-400"
+                      />
+                      <Label htmlFor="inquiry-bshm" className="text-sm">
+                        BS Hospitality Management (BSHM)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="inquiry-bstm" 
+                        checked={inquiryFormData.programs.includes('bstm')}
+                        onCheckedChange={(checked) => handleProgramChange('bstm', checked as boolean)}
+                        className="border-2 border-gray-400"
+                      />
+                      <Label htmlFor="inquiry-bstm" className="text-sm">
+                        BS Tourism Management (BSTM)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="inquiry-bsba" 
+                        checked={inquiryFormData.programs.includes('bsba')}
+                        onCheckedChange={(checked) => handleProgramChange('bsba', checked as boolean)}
+                        className="border-2 border-gray-400"
+                      />
+                      <Label htmlFor="inquiry-bsba" className="text-sm">
+                        BS Business Administration (BSBA)
+                      </Label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {inquiryFormData.studentType === "senior-high" && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-foreground">Senior High School Programs</h4>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="inquiry-it-mobile" 
+                        checked={inquiryFormData.programs.includes('it-mobile')}
+                        onCheckedChange={(checked) => handleProgramChange('it-mobile', checked as boolean)}
+                        className="border-2 border-gray-400"
+                      />
+                      <Label htmlFor="inquiry-it-mobile" className="text-sm">
+                        IT in Mobile App and Web Development
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="inquiry-humms" 
+                        checked={inquiryFormData.programs.includes('humms')}
+                        onCheckedChange={(checked) => handleProgramChange('humms', checked as boolean)}
+                        className="border-2 border-gray-400"
+                      />
+                      <Label htmlFor="inquiry-humms" className="text-sm">
+                        Humanities and Social Sciences (HUMMS)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="inquiry-abm" 
+                        checked={inquiryFormData.programs.includes('abm')}
+                        onCheckedChange={(checked) => handleProgramChange('abm', checked as boolean)}
+                        className="border-2 border-gray-400"
+                      />
+                      <Label htmlFor="inquiry-abm" className="text-sm">
+                        Accountancy, Business, and Management (ABM)
+                      </Label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!inquiryFormData.studentType && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Please select your student type above to see available programs.</p>
+                </div>
+              )}
+            </div>
+
+            {/* How Did You Find Out About STI Section */}
+            <div className="space-y-4">
+              <Label className="text-sm font-semibold text-foreground uppercase">HOW DID YOU FIND OUT ABOUT STI?</Label>
+              
+              <div className="space-y-4">
+                {/* Main Options */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="inquiry-tv" 
+                      checked={inquiryFormData.howDidYouFindOut.includes('tv')}
+                      onCheckedChange={(checked) => handleHowDidYouFindOutChange('tv', checked as boolean)}
+                      className="border-2 border-gray-400"
+                    />
+                    <Label htmlFor="inquiry-tv" className="text-sm">TV</Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="inquiry-outdoor" 
+                      checked={inquiryFormData.howDidYouFindOut.includes('outdoor')}
+                      onCheckedChange={(checked) => handleHowDidYouFindOutChange('outdoor', checked as boolean)}
+                      className="border-2 border-gray-400"
+                    />
+                    <Label htmlFor="inquiry-outdoor" className="text-sm">OUTDOOR (Billboard, Banners, Streamers)</Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="inquiry-radio" 
+                      checked={inquiryFormData.howDidYouFindOut.includes('radio')}
+                      onCheckedChange={(checked) => handleHowDidYouFindOutChange('radio', checked as boolean)}
+                      className="border-2 border-gray-400"
+                    />
+                    <Label htmlFor="inquiry-radio" className="text-sm">RADIO</Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="inquiry-print" 
+                      checked={inquiryFormData.howDidYouFindOut.includes('print')}
+                      onCheckedChange={(checked) => handleHowDidYouFindOutChange('print', checked as boolean)}
+                      className="border-2 border-gray-400"
+                    />
+                    <Label htmlFor="inquiry-print" className="text-sm">PRINT (Newspaper)</Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="inquiry-magazine" 
+                      checked={inquiryFormData.howDidYouFindOut.includes('magazine')}
+                      onCheckedChange={(checked) => handleHowDidYouFindOutChange('magazine', checked as boolean)}
+                      className="border-2 border-gray-400"
+                    />
+                    <Label htmlFor="inquiry-magazine" className="text-sm">MAGAZINE/FLYERS</Label>
+                  </div>
+                </div>
+
+                {/* ONLINE Section */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="inquiry-online-find" 
+                      checked={inquiryFormData.howDidYouFindOut.includes('online')}
+                      onCheckedChange={(checked) => handleHowDidYouFindOutChange('online', checked as boolean)}
+                      className="border-2 border-gray-400"
+                    />
+                    <Label htmlFor="inquiry-online-find" className="text-sm font-semibold">ONLINE</Label>
+                  </div>
+                  
+                  {inquiryFormData.howDidYouFindOut.includes('online') && (
+                    <div className="ml-6 space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="inquiry-website" 
+                          checked={inquiryFormData.howDidYouFindOut.includes('website')}
+                          onCheckedChange={(checked) => handleHowDidYouFindOutChange('website', checked as boolean)}
+                          className="border-2 border-gray-400"
+                        />
+                        <Label htmlFor="inquiry-website" className="text-sm">Website</Label>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="inquiry-facebook" 
+                          checked={inquiryFormData.howDidYouFindOut.includes('facebook')}
+                          onCheckedChange={(checked) => handleHowDidYouFindOutChange('facebook', checked as boolean)}
+                          className="border-2 border-gray-400"
+                        />
+                        <Label htmlFor="inquiry-facebook" className="text-sm">Facebook</Label>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="inquiry-others-online" 
+                          checked={inquiryFormData.howDidYouFindOut.includes('others-online')}
+                          onCheckedChange={(checked) => handleHowDidYouFindOutChange('others-online', checked as boolean)}
+                          className="border-2 border-gray-400"
+                        />
+                        <Label htmlFor="inquiry-others-online" className="text-sm">Others</Label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* EVENTS Section */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="inquiry-events" 
+                      checked={inquiryFormData.howDidYouFindOut.includes('events')}
+                      onCheckedChange={(checked) => handleHowDidYouFindOutChange('events', checked as boolean)}
+                      className="border-2 border-gray-400"
+                    />
+                    <Label htmlFor="inquiry-events" className="text-sm">EVENTS</Label>
+                  </div>
+                  
+                  {inquiryFormData.howDidYouFindOut.includes('events') && (
+                    <div className="ml-6">
+                      <Input 
+                        placeholder="Please describe the event" 
+                        value={inquiryFormData.eventsDescription}
+                        onChange={(e) => setInquiryFormData(prev => ({ ...prev, eventsDescription: e.target.value }))}
+                        className="border-2 border-gray-400"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* REFERRAL Section */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="inquiry-referral" 
+                      checked={inquiryFormData.howDidYouFindOut.includes('referral')}
+                      onCheckedChange={(checked) => handleHowDidYouFindOutChange('referral', checked as boolean)}
+                      className="border-2 border-gray-400"
+                    />
+                    <Label htmlFor="inquiry-referral" className="text-sm font-semibold">REFERRAL</Label>
+                  </div>
+                  
+                  {inquiryFormData.howDidYouFindOut.includes('referral') && (
+                    <div className="ml-6 space-y-2">
+                      <div className="grid md:grid-cols-2 gap-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="inquiry-sti-students" 
+                            checked={inquiryFormData.referralSource.includes('sti-students')}
+                            onCheckedChange={(checked) => handleReferralChange('sti-students', checked as boolean)}
+                            className="border-2 border-gray-400"
+                          />
+                          <Label htmlFor="inquiry-sti-students" className="text-sm">STI Students</Label>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="inquiry-sti-alumni" 
+                            checked={inquiryFormData.referralSource.includes('sti-alumni')}
+                            onCheckedChange={(checked) => handleReferralChange('sti-alumni', checked as boolean)}
+                            className="border-2 border-gray-400"
+                          />
+                          <Label htmlFor="inquiry-sti-alumni" className="text-sm">STI Alumni</Label>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="inquiry-friends" 
+                            checked={inquiryFormData.referralSource.includes('friends')}
+                            onCheckedChange={(checked) => handleReferralChange('friends', checked as boolean)}
+                            className="border-2 border-gray-400"
+                          />
+                          <Label htmlFor="inquiry-friends" className="text-sm">Friends</Label>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="inquiry-parents" 
+                            checked={inquiryFormData.referralSource.includes('parents')}
+                            onCheckedChange={(checked) => handleReferralChange('parents', checked as boolean)}
+                            className="border-2 border-gray-400"
+                          />
+                          <Label htmlFor="inquiry-parents" className="text-sm">Parents</Label>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="inquiry-relatives" 
+                            checked={inquiryFormData.referralSource.includes('relatives')}
+                            onCheckedChange={(checked) => handleReferralChange('relatives', checked as boolean)}
+                            className="border-2 border-gray-400"
+                          />
+                          <Label htmlFor="inquiry-relatives" className="text-sm">Relatives</Label>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="inquiry-others-referral" 
+                            checked={inquiryFormData.referralSource.includes('others-referral')}
+                            onCheckedChange={(checked) => handleReferralChange('others-referral', checked as boolean)}
+                            className="border-2 border-gray-400"
+                          />
+                          <Label htmlFor="inquiry-others-referral" className="text-sm">Others: (Pls specify)</Label>
+                        </div>
+                      </div>
+                      
+                      {inquiryFormData.referralSource.includes('others-referral') && (
+                        <div className="mt-2">
+                          <Input 
+                            placeholder="Please specify" 
+                            value={inquiryFormData.othersSpecify}
+                            onChange={(e) => setInquiryFormData(prev => ({ ...prev, othersSpecify: e.target.value }))}
+                            className="border-2 border-gray-400"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-6">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsInquiryDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmitInquiry}
+              className="bg-primary hover:bg-primary/90"
+            >
+              Submit Inquiry
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

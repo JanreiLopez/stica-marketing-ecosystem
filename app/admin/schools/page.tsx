@@ -6,11 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Plus, Edit, Trash2, Users, BookOpen, LogOut } from "lucide-react"
+import { Search, Plus, Edit, Trash2, Users, BookOpen } from "lucide-react"
 import { AdminBreadcrumbs } from "@/components/admin-breadcrumbs"
 import { AdminSidebar } from "@/components/admin-sidebar"
-import Link from "next/link"
-import Image from "next/image"
 import { useRouter } from "next/navigation"
 
 export default function SchoolsPage() {
@@ -32,38 +30,11 @@ export default function SchoolsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
-              <Image 
-                src="/marketeam-logo.png" 
-                alt="Marketeam Logo" 
-                width={48} 
-                height={48} 
-                className="h-12 w-12"
-              />
-              <span className="text-2xl font-serif font-bold text-primary">Marketeam</span>
-              <span className="text-sm text-muted-foreground ml-2">Admin Dashboard</span>
-            </Link>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground">Welcome, Administrator</span>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex">
-        {/* Sidebar Navigation */}
+        {/* Sidebar Navigation - Fixed */}
         <AdminSidebar onLogout={handleLogout} />
 
-        {/* Main Content */}
-        <main className="flex-1 p-6">
+        {/* Main Content - Account for fixed sidebar */}
+        <main className="ml-64 p-6">
           <AdminBreadcrumbs />
           
           <div className="mb-6">
@@ -131,7 +102,6 @@ export default function SchoolsPage() {
             </CardContent>
           </Card>
         </main>
-      </div>
     </div>
   )
 }
