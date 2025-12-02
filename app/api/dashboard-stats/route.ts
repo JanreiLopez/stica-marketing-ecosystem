@@ -48,20 +48,33 @@ export async function GET() {
       .limit(1)
       .single()
 
-    // Get top preferred courses using SQL aggregation
+    // Get top preferred courses (college programs only)
     const { data: topCoursesRaw } = await supabase
       .from('inquiries')
-      .select('program')
+      .select('program, student_type')
       .not('program', 'is', null)
       .neq('program', '')
       .neq('program', 'Not specified')
+      .eq('student_type', 'college')
 
     // Process top courses client-side (temporary until DB functions are created)
     const courseCounts: { [key: string]: number } = {}
-    topCoursesRaw?.forEach(inquiry => {
-      const programs = (inquiry.program || "").split(", ").filter(p => p.trim() && p.trim() !== "Not specified")
-      programs.forEach(program => {
-        courseCounts[program] = (courseCounts[program] || 0) + 1
+    topCoursesRaw?.forEach((inquiry: any) => {
+      const programs = (inquiry.program || "").split(", ").filter((p: string) => p.trim() && p.trim() !== "Not specified")
+      programs.forEach((program: string) => {
+        // Only count college programs (exclude senior high strands)
+        // Check both by keywords and by program code mapping
+        const isSeniorHighProgram = 
+          program.toLowerCase().includes('humms') || 
+          program.toLowerCase().includes('abm') || 
+          program.toLowerCase().includes('stem') || 
+          program.toLowerCase().includes('gas') ||
+          program.toLowerCase().includes('mobile app') ||
+          program.toLowerCase().includes('it-mobile');
+          
+        if (!isSeniorHighProgram) {
+          courseCounts[program] = (courseCounts[program] || 0) + 1
+        }
       })
     })
     const topCourses = Object.entries(courseCounts)
@@ -69,27 +82,32 @@ export async function GET() {
       .slice(0, 5)
       .map(([name, value]) => ({ name, value }))
 
-    // Get top preferred strands
+    // Get top preferred strands (senior high school strands only)
     const { data: topStrandsRaw } = await supabase
       .from('inquiries')
       .select('program, student_type')
       .not('program', 'is', null)
       .neq('program', '')
       .neq('program', 'Not specified')
+      .eq('student_type', 'senior-high')
 
     const strandCounts: { [key: string]: number } = {}
-    topStrandsRaw?.forEach(inquiry => {
-      if (inquiry.student_type && inquiry.student_type.toLowerCase().includes("senior")) {
-        const programs = (inquiry.program || "").split(", ").filter(p => p.trim() && p.trim() !== "Not specified")
-        programs.forEach(program => {
-          if (program.toLowerCase().includes("humms") ||
-              program.toLowerCase().includes("abm") ||
-              program.toLowerCase().includes("stem") ||
-              program.toLowerCase().includes("gas")) {
-            strandCounts[program] = (strandCounts[program] || 0) + 1
-          }
-        })
-      }
+    topStrandsRaw?.forEach((inquiry: any) => {
+      const programs = (inquiry.program || "").split(", ").filter((p: string) => p.trim() && p.trim() !== "Not specified")
+      programs.forEach((program: string) => {
+        // Only count senior high school strands
+        const isSeniorHighStrand = 
+          program.toLowerCase().includes("humms") ||
+          program.toLowerCase().includes("abm") ||
+          program.toLowerCase().includes("stem") ||
+          program.toLowerCase().includes("gas") ||
+          program.toLowerCase().includes("mobile app") ||
+          program.toLowerCase().includes("it-mobile");
+          
+        if (isSeniorHighStrand) {
+          strandCounts[program] = (strandCounts[program] || 0) + 1
+        }
+      })
     })
     const topStrands = Object.entries(strandCounts)
       .sort(([, a], [, b]) => b - a)
@@ -105,10 +123,21 @@ export async function GET() {
       .neq('program', 'Not specified')
 
     const programCounts: { [key: string]: number } = {}
-    enrolledRaw?.forEach(enrollment => {
-      const programs = (enrollment.program || "").split(", ").filter(p => p.trim() && p.trim() !== "Not specified")
-      programs.forEach(program => {
-        programCounts[program] = (programCounts[program] || 0) + 1
+    enrolledRaw?.forEach((enrollment: any) => {
+      const programs = (enrollment.program || "").split(", ").filter((p: string) => p.trim() && p.trim() !== "Not specified")
+      programs.forEach((program: string) => {
+        // Only count college programs (exclude senior high strands)
+        const isSeniorHighProgram = 
+          program.toLowerCase().includes('humms') || 
+          program.toLowerCase().includes('abm') || 
+          program.toLowerCase().includes('stem') || 
+          program.toLowerCase().includes('gas') ||
+          program.toLowerCase().includes('mobile app') ||
+          program.toLowerCase().includes('it-mobile');
+          
+        if (!isSeniorHighProgram) {
+          programCounts[program] = (programCounts[program] || 0) + 1
+        }
       })
     })
     const enrolledPerProgram = Object.entries(programCounts)
@@ -123,10 +152,21 @@ export async function GET() {
       .neq('program_track_strand', '')
 
     const strandEnrolledCounts: { [key: string]: number } = {}
-    enrolledStrandRaw?.forEach(enrollment => {
+    enrolledStrandRaw?.forEach((enrollment: any) => {
       const strand = enrollment.program_track_strand || enrollment.program
       if (strand && strand !== "Not specified") {
-        strandEnrolledCounts[strand] = (strandEnrolledCounts[strand] || 0) + 1
+        // Only count senior high school strands
+        const isSeniorHighStrand = 
+          strand.toLowerCase().includes("humms") ||
+          strand.toLowerCase().includes("abm") ||
+          strand.toLowerCase().includes("stem") ||
+          strand.toLowerCase().includes("gas") ||
+          strand.toLowerCase().includes("mobile app") ||
+          strand.toLowerCase().includes("it-mobile");
+          
+        if (isSeniorHighStrand) {
+          strandEnrolledCounts[strand] = (strandEnrolledCounts[strand] || 0) + 1
+        }
       }
     })
     const enrolledPerStrand = Object.entries(strandEnrolledCounts)

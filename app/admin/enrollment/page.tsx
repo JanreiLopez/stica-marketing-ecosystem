@@ -49,6 +49,7 @@ const mapRowToEnrollment = (row: Record<string, any>): EnrollmentRecord => ({
   programTrackStrand: row.program_track_strand ?? "",
   collegeStudentType: row.college_student_type ?? "",
   studentNumber: row.student_number ?? "",
+  adminName: row.admin_name ?? "Unknown Admin",
 })
 
 export default function EnrollmentPage() {
@@ -495,6 +496,7 @@ export default function EnrollmentPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="border-b border-border hover:bg-transparent">
+                          <TableHead className="font-semibold text-foreground">Admin Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Contact</TableHead>
                           <TableHead className="font-semibold text-foreground">Program</TableHead>
@@ -508,12 +510,13 @@ export default function EnrollmentPage() {
                         {renderStudentRows(
                           enrolledStudents,
                           "No students found",
-                          7,
+                          8,
                           (student) => (
                             <TableRow 
                               key={student.id}
                               className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                             >
+                              <TableCell className="font-medium py-4">{student.adminName || "Unknown Admin"}</TableCell>
                               <TableCell className="font-medium py-4">{student.name}</TableCell>
                               <TableCell className="py-4">
                                 <div className="space-y-1">
@@ -580,6 +583,7 @@ export default function EnrollmentPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="border-b border-border hover:bg-transparent">
+                          <TableHead className="font-semibold text-foreground">Admin Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Contact</TableHead>
                           <TableHead className="font-semibold text-foreground">Program</TableHead>
@@ -592,12 +596,13 @@ export default function EnrollmentPage() {
                         {renderStudentRows(
                           freshmenStudents,
                           "No freshmen students found",
-                          6,
+                          7,
                           (student) => (
                             <TableRow 
                               key={student.id}
                               className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                             >
+                              <TableCell className="font-medium py-4">{student.adminName || "Unknown Admin"}</TableCell>
                               <TableCell className="font-medium py-4">{student.name}</TableCell>
                               <TableCell className="py-4">
                                 <div className="space-y-1">
@@ -655,6 +660,7 @@ export default function EnrollmentPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="border-b border-border hover:bg-transparent">
+                          <TableHead className="font-semibold text-foreground">Admin Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Contact</TableHead>
                           <TableHead className="font-semibold text-foreground">Program</TableHead>
@@ -667,12 +673,13 @@ export default function EnrollmentPage() {
                         {renderStudentRows(
                           transfereeStudents,
                           "No transferee students found",
-                          6,
+                          7,
                           (student) => (
                             <TableRow 
                               key={student.id}
                               className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                             >
+                              <TableCell className="font-medium py-4">{student.adminName || "Unknown Admin"}</TableCell>
                               <TableCell className="font-medium py-4">{student.name}</TableCell>
                               <TableCell className="py-4">
                                 <div className="space-y-1">
@@ -730,6 +737,7 @@ export default function EnrollmentPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="border-b border-border hover:bg-transparent">
+                          <TableHead className="font-semibold text-foreground">Admin Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Contact</TableHead>
                           <TableHead className="font-semibold text-foreground">Program</TableHead>
@@ -743,12 +751,13 @@ export default function EnrollmentPage() {
                         {renderStudentRows(
                           stiTransfereeStudents,
                           "No STI transferee students found",
-                          7,
+                          8,
                           (student) => (
                             <TableRow 
                               key={student.id}
                               className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                             >
+                              <TableCell className="font-medium py-4">{student.adminName || "Unknown Admin"}</TableCell>
                               <TableCell className="font-medium py-4">{student.name}</TableCell>
                               <TableCell className="py-4">
                                 <div className="space-y-1">
@@ -877,7 +886,10 @@ export default function EnrollmentPage() {
 
       {/* Fullscreen Table Dialog */}
       <Dialog open={isTableFullscreen} onOpenChange={setIsTableFullscreen}>
-        <DialogContent className="!max-w-none !w-screen !h-screen !max-h-screen !top-0 !left-0 !translate-x-0 !translate-y-0 !rounded-none p-6 flex flex-col">
+        <DialogContent 
+                      className="!max-w-none !w-screen !h-screen !max-h-screen !top-0 !left-0 !translate-x-0 !translate-y-0 !rounded-none p-6 flex flex-col"
+                      showCloseButton={false}
+                    >
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle>Enrollment Table</DialogTitle>
@@ -938,6 +950,7 @@ export default function EnrollmentPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="border-b border-border hover:bg-transparent">
+                        <TableHead className="font-semibold text-foreground">Admin Name</TableHead>
                         <TableHead className="font-semibold text-foreground">Name</TableHead>
                         <TableHead className="font-semibold text-foreground">Contact</TableHead>
                         <TableHead className="font-semibold text-foreground">Program</TableHead>
@@ -950,19 +963,19 @@ export default function EnrollmentPage() {
                     <TableBody>
                       {isLoadingStudents ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                          <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                             Loading students...
                           </TableCell>
                         </TableRow>
                       ) : studentError ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center text-red-500 py-12">
+                          <TableCell colSpan={8} className="text-center text-red-500 py-12">
                             {studentError}
                           </TableCell>
                         </TableRow>
                       ) : filteredStudents.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                          <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                             <div className="flex flex-col items-center gap-2">
                               <Users className="h-8 w-8 text-muted-foreground/50" />
                               <p className="text-sm">No students found</p>
@@ -975,6 +988,7 @@ export default function EnrollmentPage() {
                             key={student.id}
                             className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                           >
+                            <TableCell className="font-medium py-4">{student.adminName || "Unknown Admin"}</TableCell>
                             <TableCell className="font-medium py-4">{student.name}</TableCell>
                             <TableCell className="py-4">
                               <div className="space-y-1">
@@ -1010,7 +1024,7 @@ export default function EnrollmentPage() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8"
-                                  onClick={() => handleViewStudent(student)}
+                                  onClick={() => handleEditStudent(student)}
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>

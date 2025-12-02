@@ -177,14 +177,14 @@ export default function MarketingPage() {
   }
 
   const handleSubmit = async () => {
-    if (!formData.title || !formData.leadsGenerated || !formData.budget || !formData.date) {
+    if (!formData.title || !formData.budget || !formData.date) {
       return
     }
 
     try {
       const activityData = {
         title: formData.title,
-        leadsGenerated: parseInt(formData.leadsGenerated) || 0,
+        leadsGenerated: formData.leadsGenerated ? parseInt(formData.leadsGenerated) || 0 : 0,
         school: formData.school || "",
         budget: formData.budget,
         date: format(formData.date, 'yyyy-MM-dd'),
@@ -458,10 +458,17 @@ export default function MarketingPage() {
       return sum + budget
     }, 0)
     
+    // Calculate ROI: (Leads Generated * Average Value per Lead - Total Budget) / Total Budget * 100
+    // For simplicity, we'll assume an average value per lead of ₱5,000
+    const averageValuePerLead = 5000
+    const totalRevenue = totalLeads * averageValuePerLead
+    const roi = totalBudget > 0 ? ((totalRevenue - totalBudget) / totalBudget) * 100 : 0
+    
     return {
       totalLeads,
       totalBudget,
-      activityCount: filteredActivities.length
+      activityCount: filteredActivities.length,
+      roi: Math.round(roi)
     }
   }
   
@@ -510,7 +517,8 @@ export default function MarketingPage() {
     const channelMap = new Map()
 
     filteredActivities.forEach(activity => {
-      const channel = activity.school || "Direct Traffic"
+      // Use the activity title as the channel if no school is specified
+      const channel = activity.school || activity.title || "Unspecified"
       if (!channelMap.has(channel)) {
         channelMap.set(channel, {
           channel,
@@ -604,8 +612,8 @@ export default function MarketingPage() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">324%</div>
-                <p className="text-xs text-muted-foreground">+15% from last year</p>
+                <div className="text-2xl font-bold">{stats.roi}%</div>
+                <p className="text-xs text-muted-foreground">Dynamic ROI calculation</p>
               </CardContent>
             </Card>
 
@@ -1028,7 +1036,7 @@ export default function MarketingPage() {
                   <Button 
                     onClick={handleSubmit}
                     className="bg-primary hover:bg-primary/90"
-                    disabled={!formData.title || !formData.leadsGenerated || !formData.budget || !formData.date}
+                    disabled={!formData.title || !formData.budget || !formData.date}
                   >
                     {isEditing ? 'Update Activity' : 'Add Activity'}
                   </Button>
@@ -1039,7 +1047,10 @@ export default function MarketingPage() {
 
           {/* Fullscreen Table Dialog */}
           <Dialog open={isTableFullscreen} onOpenChange={setIsTableFullscreen}>
-            <DialogContent className="!max-w-none !w-screen !h-screen !max-h-screen !top-0 !left-0 !translate-x-0 !translate-y-0 !rounded-none p-6 flex flex-col">
+            <DialogContent 
+                          className="!max-w-none !w-screen !h-screen !max-h-screen !top-0 !left-0 !translate-x-0 !translate-y-0 !rounded-none p-6 flex flex-col"
+                          showCloseButton={false}
+                        >
               <DialogHeader>
                 <div className="flex items-center justify-between">
                   <DialogTitle>Marketing Activities Table</DialogTitle>

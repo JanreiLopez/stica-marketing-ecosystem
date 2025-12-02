@@ -48,7 +48,7 @@ export default function SettingsPage() {
       try {
         // Get current user
         const { data: { user }, error: userError } = await supabase.auth.getUser()
-        if (userError) throw new Error(`Failed to get user: ${userError.message}`)
+        if (userError) throw userError
 
         if (user) {
           // Fetch profile data from profiles table
@@ -58,7 +58,7 @@ export default function SettingsPage() {
             .eq('id', user.id)
             .single()
 
-          if (profileError) throw new Error(`Failed to fetch profile: ${profileError.message}`)
+          if (profileError) throw profileError
 
           setProfileData({
             firstName: profile.first_name || "",
@@ -70,7 +70,7 @@ export default function SettingsPage() {
         console.error("Error fetching profile data:", error)
         toast({
           title: "Error",
-          description: error instanceof Error ? error.message : "Failed to load profile data",
+          description: "Failed to load profile data",
           variant: "destructive"
         })
       } finally {
@@ -117,11 +117,11 @@ export default function SettingsPage() {
       
       // Get current user
       const { data: { user }, error: userError } = await supabase.auth.getUser()
-      if (userError) throw new Error(`Failed to get user: ${userError.message}`)
+      if (userError) throw userError
 
       if (user) {
         // Update profile data in profiles table
-        const { data, error: updateError } = await supabase
+        const { error: updateError } = await supabase
           .from('profiles')
           .update({
             first_name: profileData.firstName,
@@ -129,24 +129,19 @@ export default function SettingsPage() {
             name: `${profileData.firstName} ${profileData.lastName}`.trim() || user.email?.split('@')[0] || ""
           })
           .eq('id', user.id)
-          .select()
 
-        if (updateError) {
-          throw new Error(`Failed to update profile: ${updateError.message} (Code: ${updateError.code})`)
-        }
+        if (updateError) throw updateError
 
         toast({
           title: "Profile Updated",
           description: "Your profile settings have been saved successfully."
         })
-      } else {
-        throw new Error("No user found")
       }
     } catch (error) {
       console.error("Error saving profile data:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save profile data",
+        description: "Failed to save profile data",
         variant: "destructive"
       })
     } finally {

@@ -1,6 +1,6 @@
 "use client"
 
-import { Users, FileText, BookOpen, TrendingUp, Settings, Megaphone, ClipboardCheck, LogOut } from "lucide-react"
+import { Users, FileText, BookOpen, TrendingUp, Settings, Megaphone, LogOut } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import Image from "next/image"
@@ -22,7 +22,6 @@ const navigationItems: NavigationItem[] = [
   { href: "/admin/enrollment", label: "Enrollment", icon: Users },
   { href: "/admin/marketing", label: "Marketing Activities", icon: Megaphone },
   { href: "/admin/schools", label: "Schools", icon: BookOpen },
-  { href: "/admin/evaluation", label: "Evaluation", icon: ClipboardCheck },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ]
 

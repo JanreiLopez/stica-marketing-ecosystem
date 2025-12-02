@@ -860,6 +860,7 @@ export default function InquiriesPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="border-b border-border hover:bg-transparent">
+                          <TableHead className="font-semibold text-foreground">Admin Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Contact</TableHead>
                           <TableHead className="font-semibold text-foreground">Program</TableHead>
@@ -872,19 +873,19 @@ export default function InquiriesPage() {
                       <TableBody>
                         {isLoadingInquiries ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                            <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                               Loading inquiries...
                             </TableCell>
                           </TableRow>
                         ) : inquiryError ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-red-500 py-12">
+                            <TableCell colSpan={8} className="text-center text-red-500 py-12">
                               {inquiryError}
                             </TableCell>
                           </TableRow>
                         ) : filteredInquiries.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                            <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                               <div className="flex flex-col items-center gap-2">
                                 <Users className="h-8 w-8 text-muted-foreground/50" />
                                 <p className="text-sm">No inquiries found</p>
@@ -897,6 +898,7 @@ export default function InquiriesPage() {
                               key={inquiry.id}
                               className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                             >
+                              <TableCell className="font-medium py-4">Admin Name</TableCell>
                               <TableCell className="font-medium py-4">
                                 <div className="flex items-center gap-3">
                                   <div>
@@ -1015,6 +1017,7 @@ export default function InquiriesPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="border-b border-border hover:bg-transparent">
+                          <TableHead className="font-semibold text-foreground">Admin Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Contact</TableHead>
                           <TableHead className="font-semibold text-foreground">Program</TableHead>
@@ -1027,19 +1030,19 @@ export default function InquiriesPage() {
                       <TableBody>
                         {isLoadingInquiries ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                            <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                               Loading inquiries...
                             </TableCell>
                           </TableRow>
                         ) : inquiryError ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-red-500 py-12">
+                            <TableCell colSpan={8} className="text-center text-red-500 py-12">
                               {inquiryError}
                             </TableCell>
                           </TableRow>
                         ) : todayInquiries.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                            <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                               <div className="flex flex-col items-center gap-2">
                                 <Users className="h-8 w-8 text-muted-foreground/50" />
                                 <p className="text-sm">No inquiries found for today</p>
@@ -1052,6 +1055,7 @@ export default function InquiriesPage() {
                               key={inquiry.id}
                               className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                             >
+                              <TableCell className="font-medium py-4">Admin Name</TableCell>
                               <TableCell className="font-medium py-4">
                                 <div className="flex items-center gap-3">
                                   <div>
@@ -1170,6 +1174,7 @@ export default function InquiriesPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="border-b border-border hover:bg-transparent">
+                          <TableHead className="font-semibold text-foreground">Admin Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Contact</TableHead>
                           <TableHead className="font-semibold text-foreground">Program</TableHead>
@@ -1182,19 +1187,19 @@ export default function InquiriesPage() {
                       <TableBody>
                         {isLoadingInquiries ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                            <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                               Loading inquiries...
                             </TableCell>
                           </TableRow>
                         ) : inquiryError ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-red-500 py-12">
+                            <TableCell colSpan={8} className="text-center text-red-500 py-12">
                               {inquiryError}
                             </TableCell>
                           </TableRow>
                         ) : thisWeekInquiries.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                            <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                               <div className="flex flex-col items-center gap-2">
                                 <Users className="h-8 w-8 text-muted-foreground/50" />
                                 <p className="text-sm">No inquiries found for this week</p>
@@ -1207,6 +1212,7 @@ export default function InquiriesPage() {
                               key={inquiry.id}
                               className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                             >
+                              <TableCell className="font-medium py-4">Admin Name</TableCell>
                               <TableCell className="font-medium py-4">
                                 <div className="flex items-center gap-3">
                                   <div>
@@ -1325,6 +1331,7 @@ export default function InquiriesPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="border-b border-border hover:bg-transparent">
+                          <TableHead className="font-semibold text-foreground">Admin Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Contact</TableHead>
                           <TableHead className="font-semibold text-foreground">Program</TableHead>
@@ -1337,19 +1344,19 @@ export default function InquiriesPage() {
                       <TableBody>
                         {isLoadingInquiries ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                            <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                               Loading inquiries...
                             </TableCell>
                           </TableRow>
                         ) : inquiryError ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-red-500 py-12">
+                            <TableCell colSpan={8} className="text-center text-red-500 py-12">
                               {inquiryError}
                             </TableCell>
                           </TableRow>
                         ) : thisMonthInquiries.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                            <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                               <div className="flex flex-col items-center gap-2">
                                 <Users className="h-8 w-8 text-muted-foreground/50" />
                                 <p className="text-sm">No inquiries found for this month</p>
@@ -1362,6 +1369,7 @@ export default function InquiriesPage() {
                               key={inquiry.id}
                               className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                             >
+                              <TableCell className="font-medium py-4">Admin Name</TableCell>
                               <TableCell className="font-medium py-4">
                                 <div className="flex items-center gap-3">
                                   <div>
@@ -2282,6 +2290,7 @@ export default function InquiriesPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="border-b border-border hover:bg-transparent">
+                          <TableHead className="font-semibold text-foreground">Admin Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Name</TableHead>
                           <TableHead className="font-semibold text-foreground">Contact</TableHead>
                           <TableHead className="font-semibold text-foreground">Program</TableHead>
@@ -2294,19 +2303,19 @@ export default function InquiriesPage() {
                       <TableBody>
                         {isLoadingInquiries ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                            <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                               Loading inquiries...
                             </TableCell>
                           </TableRow>
                         ) : inquiryError ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-red-500 py-12">
+                            <TableCell colSpan={8} className="text-center text-red-500 py-12">
                               {inquiryError}
                             </TableCell>
                           </TableRow>
                         ) : filteredInquiries.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                            <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                               <div className="flex flex-col items-center gap-2">
                                 <Users className="h-8 w-8 text-muted-foreground/50" />
                                 <p className="text-sm">No inquiries found</p>
@@ -2319,6 +2328,7 @@ export default function InquiriesPage() {
                               key={inquiry.id}
                               className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                             >
+                              <TableCell className="font-medium py-4">Admin Name</TableCell>
                               <TableCell className="font-medium py-4">
                                 <div className="flex items-center gap-3">
                                   <div>

@@ -26,7 +26,8 @@ This project implements an admin portal with superadmin capabilities for the STI
 2. System generates temporary password
 3. Backend creates Supabase Auth user
 4. Backend stores role = 'admin' and permissions in the database
-5. Frontend shows popup: "Admin successfully created"
+5. System sends welcome email with temporary credentials (if SMTP configured)
+6. Frontend shows popup with temporary password for manual sharing if needed
 
 ## Implementation Notes
 
@@ -39,17 +40,33 @@ The current implementation includes:
 ## Setup
 
 1. Install dependencies: `npm install`
-2. Set up Supabase environment variables:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+2. Set up environment variables by copying `.env.example` to `.env` and filling in the values:
+   - Supabase configuration variables
+   - SMTP configuration for sending emails (required for admin invitation emails)
+     - For Gmail: Use an App Password instead of your regular password
+     - See: https://support.google.com/accounts/answer/185833
 3. Run development server: `npm run dev`
+
+## Email Configuration
+
+To enable automatic email sending for admin invitations:
+
+1. Configure your SMTP settings in the `.env` file
+2. For Gmail:
+   - Enable 2-factor authentication on your Google account
+   - Generate an App Password: https://myaccount.google.com/apppasswords
+   - Use your Gmail address as `SMTP_USER` and the App Password as `SMTP_PASS`
+3. For other providers like SendGrid, AWS SES, etc., configure the appropriate SMTP settings
 
 ## Database Schema
 
-The application expects a `users` table with the following structure:
+The application expects a `profiles` table with the following structure:
 - `id` (string) - User ID from Supabase Auth
 - `email` (string) - User email
 - `role` (string) - User role ('admin' or 'superadmin')
 - `permissions` (string array) - User permissions
+- `first_name` (string, optional) - User's first name
+- `last_name` (string, optional) - User's last name
+- `name` (string, optional) - User's full name (first_name + last_name)
 - `created_at` (timestamp) - Account creation timestamp
 - `last_login` (timestamp, optional) - Last login timestamp

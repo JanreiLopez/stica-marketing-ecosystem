@@ -8,16 +8,17 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { CheckCircle, AlertCircle, PlusCircle, LogOut, FileText, Building2, Target, School } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase-client"
-import { Checkbox } from "@/components/ui/checkbox"
 
 interface AdminUser {
   id: string
   email: string
   created_at: string
-  permissions?: string | string[] // Can be string (JSON) or array
+  first_name?: string
+  last_name?: string
   [key: string]: any // Allow additional properties
 }
 
@@ -31,6 +32,8 @@ const MODULES = [
 
 export default function SuperAdminDashboard() {
   const [email, setEmail] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
@@ -78,7 +81,7 @@ export default function SuperAdminDashboard() {
       console.warn("Error checking database structure:", err);
     }
   }
-
+  
   const fetchAdmins = async () => {
     try {
       // Note: You may need to adjust RLS policies in Supabase to avoid recursion
@@ -150,21 +153,55 @@ export default function SuperAdminDashboard() {
     }
 
     // Call the admin API route to create the user with proper permissions
-    const response = await fetch('/api/admin', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ 
-        email: trimmedEmail,
-        permissions: selectedModules
-      }),
-    });
+    let response;
+    try {
+      console.log('Making API request to create admin:', { email: trimmedEmail, firstName, lastName });
+      response = await fetch('/api/admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email: trimmedEmail,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          permissions: selectedModules
+        }),
+      });
+      console.log('API response received:', response.status, response.statusText);
+    } catch (fetchError) {
+      console.error('Network error during fetch:', fetchError);
+      throw new Error(`Network error: ${fetchError instanceof Error ? fetchError.message : 'Failed to connect to the server'}`);
+    }
     
-    const result = await response.json();
+    // Check if response is OK before trying to parse JSON
+    if (!response.ok) {
+      console.error('API response not OK:', response.status, response.statusText);
+      let errorText = '';
+      try {
+        errorText = await response.text();
+        console.error('Error response body:', errorText);
+      } catch (e) {
+        console.error('Could not read error response body:', e);
+      }
+      throw new Error(`Server error: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`);
+    }
+    
+    let result;
+    try {
+      result = await response.json();
+      console.log('Parsed API response:', result);
+    } catch (parseError) {
+      console.error('Error parsing JSON response:', parseError);
+      throw new Error(`Invalid response from server: ${await response.text()}`);
+    }
     
     if (!response.ok) {
-      throw new Error(result.error || 'Failed to create admin user');
+      // Handle specific error cases
+      if (result.error && result.error.includes('already been registered')) {
+        throw new Error('An admin with this email address has already been registered');
+      }
+      throw new Error(result.error || `Server error: ${response.status} ${response.statusText}`);
     }
     
     // For the profileData, we'll use a placeholder since the API route handles the actual creation
@@ -175,13 +212,28 @@ export default function SuperAdminDashboard() {
     
     await new Promise((resolve) => setTimeout(resolve, 1500))
     
-    // Show success message
-    setSuccess(`Admin successfully created with temporary password: ${result.tempPassword}`)
+    // Show success message with email status
+    let successMessage = result.message || `Admin successfully created.`;
+    // Always show the temporary password for manual sharing if needed
+    if (result.tempPassword) {
+      successMessage += ` Temporary password: ${result.tempPassword}`;
+    }
+    setSuccess(successMessage)
     setEmail("")
+    setFirstName("")
+    setLastName("")
     fetchAdmins() // Refresh the admin list
   } catch (err) {
     console.error("Create admin error:", err);
-    const errorMessage = err instanceof Error ? err.message : "An unknown error occurred. Please try again."
+    let errorMessage = err instanceof Error ? err.message : "An unknown error occurred. Please try again."
+    
+    // Provide more specific guidance for common issues
+    if (errorMessage.includes('Network error') || errorMessage.includes('Failed to fetch')) {
+      errorMessage = "Unable to connect to the server. Please check your internet connection and try again. If the problem persists, the email service may not be properly configured.";
+    } else if (errorMessage.includes('email') || errorMessage.includes('SMTP')) {
+      errorMessage = "Email service is not properly configured. Please contact the system administrator to set up email delivery. The admin account was not created.";
+    }
+    
     setError(errorMessage)
   } finally {
     setIsLoading(false)
@@ -200,40 +252,36 @@ export default function SuperAdminDashboard() {
   }
 
   const handleDeleteAdmin = async (adminId: string) => {
-    if (!confirm('Are you sure you want to delete this admin account?')) return
+    if (!confirm('Are you sure you want to delete this admin account? This action cannot be undone.')) return
+  
+  try {
+    // Call the delete admin API route to properly delete the user from both auth and profiles
+    const response = await fetch('/api/admin/delete', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId: adminId }),
+    });
     
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', adminId)
-        
-      if (error) {
-        console.error("Supabase delete error:", error);
-        let errorMessage = error.message || 'Unknown database error';
-        
-        // Provide more user-friendly error messages
-        if (errorMessage.includes('permission')) {
-          errorMessage = 'Insufficient permissions to delete admin account';
-        } else if (errorMessage.includes('constraint')) {
-          errorMessage = 'Cannot delete admin due to existing dependencies';
-        }
-        
-        throw new Error(`Failed to delete admin: ${errorMessage}`);
-      }
-      
-      // Refresh the admin list
-      fetchAdmins()
-      
-      // Show success message
-      setSuccess("Admin account deleted successfully")
-      setTimeout(() => setSuccess(""), 3000)
-    } catch (err) {
-      console.error("Delete admin error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to delete admin account"
-      setError(errorMessage)
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to delete admin user');
     }
+    
+    // Refresh the admin list
+    fetchAdmins()
+    
+    // Show success message
+    setSuccess("Admin account deleted successfully")
+    setTimeout(() => setSuccess(""), 3000)
+  } catch (err) {
+    console.error("Delete admin error:", err);
+    const errorMessage = err instanceof Error ? err.message : "Failed to delete admin account"
+    setError(errorMessage)
   }
+}
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900">
@@ -254,7 +302,7 @@ export default function SuperAdminDashboard() {
           <Card className="bg-cyan-50/50 border-cyan-100">
             <CardHeader>
               <CardTitle className="text-slate-700">Create New Admin</CardTitle>
-              <CardDescription className="text-slate-600">Enter admin email to generate account with temporary password</CardDescription>
+              <CardDescription className="text-slate-600">Enter admin details to generate account with temporary password</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleCreateAdmin} className="space-y-4">
@@ -268,9 +316,39 @@ export default function SuperAdminDashboard() {
                 {success && (
                   <Alert variant="default" className="border-green-500 text-green-700 bg-green-50">
                     <CheckCircle className="h-4 w-4" />
-                    <AlertDescription>{success}</AlertDescription>
+                    <AlertDescription>
+                      {success}
+                      {success.includes('Temporary password:') && (
+                        <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-yellow-800">
+                          <strong>Temporary Password:</strong> {success.split('Temporary password: ')[1]}
+                        </div>
+                      )}
+                    </AlertDescription>
                   </Alert>
                 )}
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName" className="text-slate-700">First Name</Label>
+                    <Input
+                      id="firstName"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Enter first name"
+                      className="bg-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName" className="text-slate-700">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Enter last name"
+                      className="bg-white"
+                    />
+                  </div>
+                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-slate-700">Admin Email</Label>
@@ -339,9 +417,9 @@ export default function SuperAdminDashboard() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="text-slate-700">Name</TableHead>
                     <TableHead className="text-slate-700">Email</TableHead>
                     <TableHead className="text-slate-700">Created</TableHead>
-                    <TableHead className="text-slate-700">Last Login</TableHead>
                     <TableHead className="text-slate-700">Actions</TableHead>
                     <TableHead className="text-slate-700">Status</TableHead>
                   </TableRow>
@@ -350,11 +428,13 @@ export default function SuperAdminDashboard() {
                   {admins.length > 0 ? (
                     admins.map((admin) => (
                       <TableRow key={admin.id}>
-                        <TableCell className="font-medium text-slate-700">{admin.email || 'No email for ID: ' + admin.id}</TableCell>
-                        <TableCell className="text-slate-600">{new Date(admin.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell className="text-slate-600">
-                          N/A
+                        <TableCell className="font-medium text-slate-700">
+                          {admin.first_name || admin.last_name 
+                            ? `${admin.first_name || ''} ${admin.last_name || ''}`.trim() 
+                            : 'No name provided'}
                         </TableCell>
+                        <TableCell className="text-slate-700">{admin.email || 'No email for ID: ' + admin.id}</TableCell>
+                        <TableCell className="text-slate-600">{new Date(admin.created_at).toLocaleDateString()}</TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
                             <Button 

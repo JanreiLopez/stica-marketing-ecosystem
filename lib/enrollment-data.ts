@@ -39,6 +39,7 @@ export type EnrollmentRecord = {
   programTrackStrand?: string
   collegeStudentType?: CollegeStudentType
   studentNumber?: string
+  adminName?: string
 }
 
 export const PROGRAM_CODE_TO_LABEL: Record<string, string> = {

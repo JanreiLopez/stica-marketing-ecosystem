@@ -1320,7 +1320,10 @@ export default function SchoolsPage() {
 
       {/* Fullscreen Table Dialog */}
       <Dialog open={isTableFullscreen} onOpenChange={setIsTableFullscreen}>
-        <DialogContent className="!max-w-none !w-screen !h-screen !max-h-screen !top-0 !left-0 !translate-x-0 !translate-y-0 !rounded-none p-6 flex flex-col">
+        <DialogContent 
+                      className="!max-w-none !w-screen !h-screen !max-h-screen !top-0 !left-0 !translate-x-0 !translate-y-0 !rounded-none p-6 flex flex-col"
+                      showCloseButton={false}
+                    >
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle>Schools Table</DialogTitle>
