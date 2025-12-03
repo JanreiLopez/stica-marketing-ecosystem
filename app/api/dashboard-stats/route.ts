@@ -6,16 +6,36 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 )
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Parse query parameters for date range
+  const { searchParams } = new URL(request.url)
+  const startDate = searchParams.get('startDate')
+  const endDate = searchParams.get('endDate')
+  
+  console.log('Dashboard stats request with date range:', { startDate, endDate })
   try {
     const now = new Date()
     const currentYear = now.getFullYear()
     const previousYear = currentYear - 1
 
-    // Get current year counts
+    // Get current year counts with date filtering
+    const inquiriesQuery = supabase.from('inquiries').select('*', { count: 'exact', head: true })
+    const enrollmentsQuery = supabase.from('enrollments').select('*', { count: 'exact', head: true })
+    
+    // Apply date filters if provided
+    if (startDate) {
+      inquiriesQuery.gte('created_at', startDate)
+      enrollmentsQuery.gte('created_at', startDate)
+    }
+    
+    if (endDate) {
+      inquiriesQuery.lte('created_at', endDate)
+      enrollmentsQuery.lte('created_at', endDate)
+    }
+    
     const [inquiriesCount, enrollmentsCount] = await Promise.all([
-      supabase.from('inquiries').select('*', { count: 'exact', head: true }),
-      supabase.from('enrollments').select('*', { count: 'exact', head: true })
+      inquiriesQuery,
+      enrollmentsQuery
     ])
 
     // Get previous year counts for year-over-year comparison
@@ -49,78 +69,119 @@ export async function GET() {
       .single()
 
     // Get top preferred courses (college programs only)
-    const { data: topCoursesRaw } = await supabase
+    let topCoursesQuery = supabase
       .from('inquiries')
       .select('program, student_type')
       .not('program', 'is', null)
       .neq('program', '')
       .neq('program', 'Not specified')
       .eq('student_type', 'college')
+      
+    // Apply date filters
+    if (startDate) {
+      topCoursesQuery = topCoursesQuery.gte('created_at', startDate)
+    }
+    
+    if (endDate) {
+      topCoursesQuery = topCoursesQuery.lte('created_at', endDate)
+    }
+    
+    const { data: topCoursesRaw } = await topCoursesQuery
 
     // Process top courses client-side (temporary until DB functions are created)
+    console.log('Processing top courses raw data:', topCoursesRaw)
     const courseCounts: { [key: string]: number } = {}
     topCoursesRaw?.forEach((inquiry: any) => {
       const programs = (inquiry.program || "").split(", ").filter((p: string) => p.trim() && p.trim() !== "Not specified")
+      console.log('Processing inquiry programs:', { inquiry, programs })
       programs.forEach((program: string) => {
         // Only count college programs (exclude senior high strands)
-        // Check both by keywords and by program code mapping
+        // College programs have specific prefixes that distinguish them from senior high strands
         const isSeniorHighProgram = 
           program.toLowerCase().includes('humms') || 
           program.toLowerCase().includes('abm') || 
-          program.toLowerCase().includes('stem') || 
-          program.toLowerCase().includes('gas') ||
           program.toLowerCase().includes('mobile app') ||
-          program.toLowerCase().includes('it-mobile');
+          program.toLowerCase().includes('it-mobile') ||
+          program.toLowerCase().includes('humanities and social sciences') ||
+          program.toLowerCase().includes('accountancy, business, and management');
           
+        console.log('Program classification:', { program, isSeniorHighProgram })
         if (!isSeniorHighProgram) {
           courseCounts[program] = (courseCounts[program] || 0) + 1
         }
       })
     })
+    console.log('Final course counts:', courseCounts)
     const topCourses = Object.entries(courseCounts)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5)
       .map(([name, value]) => ({ name, value }))
 
     // Get top preferred strands (senior high school strands only)
-    const { data: topStrandsRaw } = await supabase
+    let topStrandsQuery = supabase
       .from('inquiries')
       .select('program, student_type')
       .not('program', 'is', null)
       .neq('program', '')
       .neq('program', 'Not specified')
       .eq('student_type', 'senior-high')
+      
+    // Apply date filters
+    if (startDate) {
+      topStrandsQuery = topStrandsQuery.gte('created_at', startDate)
+    }
+    
+    if (endDate) {
+      topStrandsQuery = topStrandsQuery.lte('created_at', endDate)
+    }
+    
+    const { data: topStrandsRaw } = await topStrandsQuery
 
+    console.log('Processing top strands raw data:', topStrandsRaw)
     const strandCounts: { [key: string]: number } = {}
     topStrandsRaw?.forEach((inquiry: any) => {
       const programs = (inquiry.program || "").split(", ").filter((p: string) => p.trim() && p.trim() !== "Not specified")
+      console.log('Processing inquiry strands:', { inquiry, programs })
       programs.forEach((program: string) => {
         // Only count senior high school strands
         const isSeniorHighStrand = 
           program.toLowerCase().includes("humms") ||
           program.toLowerCase().includes("abm") ||
-          program.toLowerCase().includes("stem") ||
-          program.toLowerCase().includes("gas") ||
           program.toLowerCase().includes("mobile app") ||
-          program.toLowerCase().includes("it-mobile");
+          program.toLowerCase().includes("it-mobile") ||
+          program.toLowerCase().includes("humanities and social sciences") ||
+          program.toLowerCase().includes("accountancy, business, and management");
           
+        console.log('Strand classification:', { program, isSeniorHighStrand })
         if (isSeniorHighStrand) {
           strandCounts[program] = (strandCounts[program] || 0) + 1
         }
       })
     })
+    console.log('Final strand counts:', strandCounts)
     const topStrands = Object.entries(strandCounts)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5)
       .map(([name, value]) => ({ name, value }))
 
     // Get enrolled students per program
-    const { data: enrolledRaw } = await supabase
+    let enrolledQuery = supabase
       .from('enrollments')
       .select('program')
       .not('program', 'is', null)
       .neq('program', '')
       .neq('program', 'Not specified')
+      
+    // Apply date filters
+    if (startDate) {
+      enrolledQuery = enrolledQuery.gte('created_at', startDate)
+    }
+    
+    if (endDate) {
+      enrolledQuery = enrolledQuery.lte('created_at', endDate)
+    }
+    
+    const { data: enrolledRaw } = await enrolledQuery
 
     const programCounts: { [key: string]: number } = {}
     enrolledRaw?.forEach((enrollment: any) => {
@@ -130,10 +191,10 @@ export async function GET() {
         const isSeniorHighProgram = 
           program.toLowerCase().includes('humms') || 
           program.toLowerCase().includes('abm') || 
-          program.toLowerCase().includes('stem') || 
-          program.toLowerCase().includes('gas') ||
           program.toLowerCase().includes('mobile app') ||
-          program.toLowerCase().includes('it-mobile');
+          program.toLowerCase().includes('it-mobile') ||
+          program.toLowerCase().includes('humanities and social sciences') ||
+          program.toLowerCase().includes('accountancy, business, and management');
           
         if (!isSeniorHighProgram) {
           programCounts[program] = (programCounts[program] || 0) + 1
@@ -145,11 +206,22 @@ export async function GET() {
       .map(([name, value]) => ({ name, value }))
 
     // Get enrolled students per strand
-    const { data: enrolledStrandRaw } = await supabase
+    let enrolledStrandQuery = supabase
       .from('enrollments')
       .select('program_track_strand, program')
       .not('program_track_strand', 'is', null)
       .neq('program_track_strand', '')
+      
+    // Apply date filters
+    if (startDate) {
+      enrolledStrandQuery = enrolledStrandQuery.gte('created_at', startDate)
+    }
+    
+    if (endDate) {
+      enrolledStrandQuery = enrolledStrandQuery.lte('created_at', endDate)
+    }
+    
+    const { data: enrolledStrandRaw } = await enrolledStrandQuery
 
     const strandEnrolledCounts: { [key: string]: number } = {}
     enrolledStrandRaw?.forEach((enrollment: any) => {
@@ -159,10 +231,10 @@ export async function GET() {
         const isSeniorHighStrand = 
           strand.toLowerCase().includes("humms") ||
           strand.toLowerCase().includes("abm") ||
-          strand.toLowerCase().includes("stem") ||
-          strand.toLowerCase().includes("gas") ||
           strand.toLowerCase().includes("mobile app") ||
-          strand.toLowerCase().includes("it-mobile");
+          strand.toLowerCase().includes("it-mobile") ||
+          strand.toLowerCase().includes("humanities and social sciences") ||
+          strand.toLowerCase().includes("accountancy, business, and management");
           
         if (isSeniorHighStrand) {
           strandEnrolledCounts[strand] = (strandEnrolledCounts[strand] || 0) + 1

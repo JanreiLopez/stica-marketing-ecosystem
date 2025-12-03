@@ -1821,7 +1821,7 @@ export default function InquiriesPage() {
                         onCheckedChange={(checked) => handleArrayChange('howDidYouFindOut', 'career-orientation', checked as boolean)}
                         className="border border-gray-400"
                       />
-                      <Label htmlFor="inquiry-career-orientation" className="text-sm">CAREER ORIENTATION SEMINAR</Label>
+                      
                     </div>
                   </div>
 

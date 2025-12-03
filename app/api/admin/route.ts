@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import nodemailer from 'nodemailer'
 
 console.log('Admin API route loaded');
 
@@ -62,29 +61,25 @@ export async function POST(request: Request) {
       )
     }
     
-    // Generate temporary password (for manual sharing if email fails)
+    // Generate temporary password
     const tempPassword = Math.random().toString(36).slice(-8)
     
-    console.log('Attempting to invite user by email:', email);
+    console.log('Attempting to create user with temporary password:', email);
     
-    // Invite user by email (this will create the user and send invitation email)
-    const { data, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login`,
-      data: {
-        first_name: firstName || '',
-        last_name: lastName || '',
-        role: 'admin',
-        permissions: permissions
-      }
+    // Create user directly with temporary password
+    const { data, error: createError } = await supabase.auth.admin.createUser({
+      email,
+      password: tempPassword,
+      email_confirm: true
     })
     
-    console.log('Invite user result:', { data, inviteError });
+    console.log('Create user result:', { data, error: createError });
     
-    if (inviteError) {
-      console.log('Invite user error:', inviteError);
+    if (createError) {
+      console.log('Create user error:', createError);
       
       // If it's an email configuration error, fall back to manual creation
-      if (inviteError.message.includes('email') || inviteError.message.includes('SMTP') || inviteError.message.includes('provider')) {
+      if (createError.message.includes('email') || createError.message.includes('SMTP') || createError.message.includes('provider')) {
         console.log('Email provider not configured, falling back to manual user creation');
         
         // Generate temporary password
@@ -146,14 +141,14 @@ export async function POST(request: Request) {
       }
       
       // Handle specific error cases
-      if (inviteError.message.includes('already been registered')) {
+      if (createError.message.includes('already been registered')) {
         return NextResponse.json(
           { error: 'A user with this email address has already been registered' },
           { status: 400 }
         )
       }
       return NextResponse.json(
-        { error: inviteError.message },
+        { error: createError.message },
         { status: 400 }
       )
     }
@@ -192,85 +187,15 @@ export async function POST(request: Request) {
         )
       }
       
-      // Send custom email with temporary password
-      let emailSent = false;
-      
-      // Check if SMTP configuration is available
-      if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-        try {
-          // Create transporter using environment variables
-          const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtp.gmail.com',
-            port: parseInt(process.env.SMTP_PORT || '587'),
-            secure: false, // true for 465, false for other ports
-            auth: {
-              user: process.env.SMTP_USER,
-              pass: process.env.SMTP_PASS,
-            },
-          });
-          
-          // Verify transporter configuration
-          await transporter.verify();
-          
-          // Send email with temporary password
-          await transporter.sendMail({
-            from: process.env.SMTP_USER,
-            to: email,
-            subject: 'STICA Marketing Ecosystem - Admin Account Created',
-            text: `Welcome to the STICA Marketing Ecosystem Admin Portal!
-
-Your admin account has been created. You can log in using the following credentials:
-
-Email: ${email}
-Temporary Password: ${tempPassword}
-
-Please visit ${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login to log in.
-
-After logging in, please change your password immediately for security reasons.
-
-Best regards,
-The STICA Team`,
-            html: `<h2>Welcome to the STICA Marketing Ecosystem Admin Portal!</h2>
-<p>Your admin account has been created. You can log in using the following credentials:</p>
-<ul>
-  <li><strong>Email:</strong> ${email}</li>
-  <li><strong>Temporary Password:</strong> ${tempPassword}</li>
-</ul>
-<p>Please <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login">click here</a> to log in.</p>
-<p><strong>After logging in, please change your password immediately for security reasons.</strong></p>
-<br>
-<p>Best regards,<br>The STICA Team</p>`
-          });
-          
-          emailSent = true;
-          console.log('Custom email sent successfully to:', email);
-        } catch (emailError) {
-          console.error('Error sending custom email:', emailError);
-          // Continue with the process even if email fails
-        }
-      } else {
-        console.log('SMTP configuration not found. Skipping email sending.');
-        // Still return success but indicate that email wasn't sent
-        const message = 'Admin successfully created. SMTP configuration not found - please configure email settings to enable automatic email sending. Share the temporary password below manually.';
-        return NextResponse.json({
-          success: true,
-          message,
-          tempPassword,
-          emailSent: false
-        });
-      }
-      
       // Prepare success message
-      const message = emailSent 
-        ? 'Admin successfully created. A welcome email with login credentials has been sent.'
-        : 'Admin successfully created. However, we couldn\'t send the welcome email. Please share the temporary password below manually.';
+      const message = 'Admin successfully created. Use the temporary password below to log in.';
       
       // Return success with temporary password
       return NextResponse.json({
         success: true,
         message,
         tempPassword,
-        emailSent
+        emailSent: false
       });
     }
     

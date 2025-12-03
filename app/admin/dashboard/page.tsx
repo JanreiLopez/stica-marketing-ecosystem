@@ -157,7 +157,28 @@ export default function AdminDashboardPage() {
           return
         }
 
-        const response = await fetch('/api/dashboard-stats')
+        // Format dates for API request
+        const formattedStartDate = startDate ? format(startDate, 'yyyy-MM-dd') : ''
+        const formattedEndDate = endDate ? format(endDate, 'yyyy-MM-dd') : ''
+        
+        // Build API URL with date parameters
+        let apiUrl = '/api/dashboard-stats'
+        const params = new URLSearchParams()
+        
+        if (formattedStartDate) {
+          params.append('startDate', formattedStartDate)
+        }
+        
+        if (formattedEndDate) {
+          params.append('endDate', formattedEndDate)
+        }
+        
+        if (params.toString()) {
+          apiUrl += `?${params.toString()}`
+        }
+        
+        console.log('Fetching dashboard stats with URL:', apiUrl)
+        const response = await fetch(apiUrl)
         const data = await response.json()
 
         if (response.ok) {
