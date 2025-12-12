@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const [isDarkMode, setIsDarkMode] = useState(theme === "dark")
   const [isLoading, setIsLoading] = useState(true)
+  const [userPermissions, setUserPermissions] = useState<string[]>([]); // New state for user permissions
   
   // Profile settings state
   const [profileData, setProfileData] = useState({
@@ -31,8 +32,7 @@ export default function SettingsPage() {
   const [notificationSettings, setNotificationSettings] = useState({
     newInquiries: true,
     enrollmentAlerts: true,
-    marketingUpdates: false,
-    systemMaintenance: true
+    marketingUpdates: false
   })
   
   // Security settings state
@@ -44,7 +44,7 @@ export default function SettingsPage() {
 
   // Fetch current user profile data
   useEffect(() => {
-    const fetchProfileData = async () => {
+    const fetchProfileAndPermissions = async () => {
       try {
         // Get current user
         const { data: { user }, error: userError } = await supabase.auth.getUser()
@@ -54,7 +54,7 @@ export default function SettingsPage() {
           // Fetch profile data from profiles table
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('first_name, last_name, email')
+            .select('first_name, last_name, email, permissions') // Fetch permissions here
             .eq('id', user.id)
             .single()
 
@@ -65,6 +65,20 @@ export default function SettingsPage() {
             lastName: profile.last_name || "",
             email: profile.email || user.email || ""
           })
+
+          // Parse and set permissions
+          try {
+            const permissions = typeof profile.permissions === 'string'
+              ? JSON.parse(profile.permissions)
+              : profile.permissions;
+            setUserPermissions(permissions || []);
+          } catch (parseError) {
+            console.error('Error parsing permissions:', parseError);
+            setUserPermissions([]);
+          }
+        } else {
+          router.push('/login'); // Redirect to login if not authenticated
+          return;
         }
       } catch (error) {
         console.error("Error fetching profile data:", error)
@@ -78,8 +92,8 @@ export default function SettingsPage() {
       }
     }
 
-    fetchProfileData()
-  }, [])
+    fetchProfileAndPermissions()
+  }, [router]) // Added router to dependency array
 
   const handleLogout = () => {
     router.push("/login")
@@ -162,7 +176,16 @@ export default function SettingsPage() {
     })
   }
   
-  const updatePassword = () => {
+  const updatePassword = async () => {
+    if (!securityData.currentPassword) {
+      toast({
+        title: "Password Error",
+        description: "Please enter your current password.",
+        variant: "destructive"
+      })
+      return
+    }
+
     if (securityData.newPassword !== securityData.confirmPassword) {
       toast({
         title: "Password Error",
@@ -180,18 +203,60 @@ export default function SettingsPage() {
       })
       return
     }
-    
-    // In a real implementation, this would update the password in the database
-    toast({
-      title: "Password Updated",
-      description: "Your password has been changed successfully."
-    })
-    
-    setSecurityData({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: ""
-    })
+
+    try {
+      setIsLoading(true)
+
+      // First, verify the current password by attempting to sign in
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        throw new Error("Failed to get current user")
+      }
+
+      // Verify current password
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: securityData.currentPassword
+      })
+
+      if (signInError) {
+        toast({
+          title: "Password Error",
+          description: "Current password is incorrect.",
+          variant: "destructive"
+        })
+        return
+      }
+
+      // Update password using Supabase Auth
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: securityData.newPassword
+      })
+
+      if (updateError) {
+        throw new Error(`Failed to update password: ${updateError.message}`)
+      }
+
+      toast({
+        title: "Password Updated",
+        description: "Your password has been changed successfully."
+      })
+      
+      setSecurityData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: ""
+      })
+    } catch (error) {
+      console.error("Error updating password:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update password",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (isLoading) {
@@ -205,7 +270,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900">
       {/* Sidebar Navigation - Fixed */}
-      <AdminSidebar onLogout={handleLogout} />
+      <AdminSidebar onLogout={handleLogout} userPermissions={userPermissions} />
 
         {/* Main Content - Account for fixed sidebar */}
         <main className="ml-64 p-6">
@@ -280,11 +345,60 @@ export default function SettingsPage() {
                   />
                 </div>
                 <Button 
-                  className="bg-teal-700 hover:bg-teal-800 text-white"
+                  className="bg-primary hover:bg-primary/90"
                   onClick={saveProfileChanges}
                   disabled={isLoading}
                 >
                   {isLoading ? "Saving..." : "Save Profile Changes"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Security Settings */}
+            <Card className="bg-cyan-50/50 dark:bg-slate-800 border-cyan-100 dark:border-slate-700">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-slate-700 dark:text-slate-200" />
+                  <CardTitle className="text-slate-700 dark:text-slate-200">Security Settings</CardTitle>
+                </div>
+                <CardDescription className="text-slate-600 dark:text-slate-400">Manage security preferences and access controls</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="currentPassword" className="text-slate-700 dark:text-slate-200">Current Password</Label>
+                  <Input 
+                    id="currentPassword" 
+                    type="password" 
+                    value={securityData.currentPassword}
+                    onChange={(e) => handleSecurityChange('currentPassword', e.target.value)}
+                    className="bg-white dark:bg-slate-700 dark:text-slate-200" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="newPassword" className="text-slate-700 dark:text-slate-200">New Password</Label>
+                  <Input 
+                    id="newPassword" 
+                    type="password" 
+                    value={securityData.newPassword}
+                    onChange={(e) => handleSecurityChange('newPassword', e.target.value)}
+                    className="bg-white dark:bg-slate-700 dark:text-slate-200" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword" className="text-slate-700 dark:text-slate-200">Confirm New Password</Label>
+                  <Input 
+                    id="confirmPassword" 
+                    type="password" 
+                    value={securityData.confirmPassword}
+                    onChange={(e) => handleSecurityChange('confirmPassword', e.target.value)}
+                    className="bg-white dark:bg-slate-700 dark:text-slate-200" 
+                  />
+                </div>
+                <Button 
+                  className="bg-primary hover:bg-primary/90"
+                  onClick={updatePassword}
+                >
+                  Update Password
                 </Button>
               </CardContent>
             </Card>
@@ -331,80 +445,12 @@ export default function SettingsPage() {
                     onCheckedChange={(checked) => handleNotificationChange('marketingUpdates', checked)} 
                   />
                 </div>
-                <Separator className="dark:bg-slate-700" />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-slate-700 dark:text-slate-200">System Maintenance</Label>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">Notifications about system updates and maintenance</p>
-                  </div>
-                  <Switch 
-                    checked={notificationSettings.systemMaintenance} 
-                    onCheckedChange={(checked) => handleNotificationChange('systemMaintenance', checked)} 
-                  />
-                </div>
                 <Button 
-                  className="mt-4 bg-teal-700 hover:bg-teal-800 text-white"
+                  className="mt-4 bg-primary hover:bg-primary/90"
                   onClick={saveNotificationSettings}
                 >
                   Save Notification Settings
                 </Button>
-              </CardContent>
-            </Card>
-
-            {/* Security Settings */}
-            <Card className="bg-cyan-50/50 dark:bg-slate-800 border-cyan-100 dark:border-slate-700">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-slate-700 dark:text-slate-200" />
-                  <CardTitle className="text-slate-700 dark:text-slate-200">Security Settings</CardTitle>
-                </div>
-                <CardDescription className="text-slate-600 dark:text-slate-400">Manage security preferences and access controls</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="currentPassword" className="text-slate-700 dark:text-slate-200">Current Password</Label>
-                  <Input 
-                    id="currentPassword" 
-                    type="password" 
-                    value={securityData.currentPassword}
-                    onChange={(e) => handleSecurityChange('currentPassword', e.target.value)}
-                    className="bg-white dark:bg-slate-700 dark:text-slate-200" 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="newPassword" className="text-slate-700 dark:text-slate-200">New Password</Label>
-                  <Input 
-                    id="newPassword" 
-                    type="password" 
-                    value={securityData.newPassword}
-                    onChange={(e) => handleSecurityChange('newPassword', e.target.value)}
-                    className="bg-white dark:bg-slate-700 dark:text-slate-200" 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword" className="text-slate-700 dark:text-slate-200">Confirm New Password</Label>
-                  <Input 
-                    id="confirmPassword" 
-                    type="password" 
-                    value={securityData.confirmPassword}
-                    onChange={(e) => handleSecurityChange('confirmPassword', e.target.value)}
-                    className="bg-white dark:bg-slate-700 dark:text-slate-200" 
-                  />
-                </div>
-                <Button 
-                  className="bg-teal-700 hover:bg-teal-800 text-white"
-                  onClick={updatePassword}
-                >
-                  Update Password
-                </Button>
-                <Separator className="dark:bg-slate-700" />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-slate-700 dark:text-slate-200">Two-Factor Authentication</Label>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">Add an extra layer of security to your account</p>
-                  </div>
-                  <Switch />
-                </div>
               </CardContent>
             </Card>
           </div>

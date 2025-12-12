@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Users Guide - STICA Marketing Ecosystem</title>
+    <style>
+        body {
+            font-family: 'Calibri', Arial, sans-serif;
+            margin: 40px;
+            font-size: 11pt;
+            color: #000000;
+            line-height: 1.6;
+        }
+        h1 {
+            font-size: 18pt;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-align: left;
+            text-transform: uppercase;
+        }
+        h2 {
+            font-size: 14pt;
+            font-weight: bold;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        h3 {
+            font-size: 12pt;
+            font-weight: bold;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            text-align: left;
+        }
+        p {
+            margin-bottom: 10px;
+            text-align: left;
+        }
+        ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        ul ul {
+            margin-left: 20px;
+            margin-top: 5px;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        strong {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>USERS GUIDE</h1>
+    
+    <div class="section">
+        <h2>System Requirements</h2>
+        <p>To access the STICA Marketing Ecosystem, you need:</p>
+        <ul>
+            <li>A modern web browser (Google Chrome, Microsoft Edge, Mozilla Firefox, or Safari)</li>
+            <li>An active internet connection</li>
+            <li>Valid user credentials provided by the system administrator</li>
+            <li>Microsoft 365 account (for authentication)</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>1. Logging Into the System</h2>
+        
+        <h3>1. Launch the System:</h3>
+        <ul>
+            <li>Open your web browser and navigate to the STICA Marketing Ecosystem URL provided by your administrator.</li>
+        </ul>
+
+        <h3>2. Microsoft 365 Login:</h3>
+        <ul>
+            <li>You will be redirected to the login page.</li>
+            <li>Enter your registered email address and password.</li>
+            <li>Click <strong>Sign in with Microsoft 365</strong> to authenticate.</li>
+            <li>Upon successful authentication, you will be redirected to your respective dashboard based on your role.</li>
+        </ul>
+
+        <h3>3. User Roles:</h3>
+        <p>The system supports the following user roles:</p>
+        <ul>
+            <li><strong>Superadmin</strong> - Full system access and administrative privileges</li>
+            <li><strong>Admin</strong> - Access to assigned modules based on permissions</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>2. User Roles and Features</h2>
+
+        <h2>A. Superadmin</h2>
+        <p>The Superadmin has full access to all system functionalities and administrative privileges. This role is responsible for managing the entire system, including user accounts, permissions, and system-wide configurations.</p>
+
+        <h3>Key Features:</h3>
+        <ul>
+            <li>Create, edit, and delete admin user accounts</li>
+            <li>Assign module permissions to admin users (Inquiries, Enrollment, Marketing Activities, Schools)</li>
+            <li>View all admin accounts and their assigned permissions</li>
+            <li>Generate comprehensive system reports</li>
+            <li>Access all modules without restrictions</li>
+        </ul>
+
+        <h3>How to:</h3>
+        
+        <h3>Add Users:</h3>
+        <ul>
+            <li>Navigate to <strong>Superadmin Dashboard</strong></li>
+            <li>In the "Create New Admin" section, enter the following:
+                <ul>
+                    <li>Email address (must be unique and valid)</li>
+                    <li>First Name</li>
+                    <li>Last Name</li>
+                </ul>
+            </li>
+            <li>Select the modules you want to grant access to by checking the boxes:
+                <ul>
+                    <li>Inquiries</li>
+                    <li>Enrollment</li>
+                    <li>Marketing Activities</li>
+                    <li>Schools</li>
+                </ul>
+            </li>
+            <li>Click <strong>Create Admin</strong></li>
+            <li>The system will generate a temporary password that you can share with the new admin user</li>
+            <li>The new admin will receive an email with their login credentials (if email is configured)</li>
+        </ul>
+
+        <h3>Edit User Permissions:</h3>
+        <ul>
+            <li>Navigate to <strong>Superadmin Dashboard</strong></li>
+            <li>Locate the admin user in the "Admin Accounts" table</li>
+            <li>Click the <strong>Edit</strong> button (pencil icon) next to the user</li>
+            <li>Modify the module permissions by checking or unchecking the appropriate boxes</li>
+            <li>Click <strong>Update Admin</strong> to save changes</li>
+        </ul>
+
+        <h3>Delete Users:</h3>
+        <ul>
+            <li>Navigate to <strong>Superadmin Dashboard</strong></li>
+            <li>Locate the admin user in the "Admin Accounts" table</li>
+            <li>Click the <strong>Delete</strong> button (trash icon) next to the user</li>
+            <li>Confirm the deletion in the dialog box</li>
+            <li>The user account will be permanently removed from the system</li>
+        </ul>
+
+        <h2>B. Admin</h2>
+        <p>The Admin role has access to specific modules based on permissions assigned by the Superadmin. Admins can manage inquiries, enrollments, marketing activities, and schools within their assigned modules.</p>
+
+        <h3>Key Features:</h3>
+        <ul>
+            <li>Access to Dashboard with analytics and statistics</li>
+            <li>Manage student inquiries (if Inquiries permission is granted)</li>
+            <li>Manage student enrollments (if Enrollment permission is granted)</li>
+            <li>Track marketing activities and campaigns (if Marketing Activities permission is granted)</li>
+            <li>Manage feeder schools, competitor schools, and non-feeder schools (if Schools permission is granted)</li>
+            <li>Update personal profile and settings</li>
+            <li>View reports and analytics for assigned modules</li>
+        </ul>
+
+        <h3>Module Access:</h3>
+        <p>Admins can only access modules that have been assigned to them by the Superadmin. The available modules are:</p>
+        <ul>
+            <li><strong>Dashboard</strong> - Always accessible, provides overview of inquiries, enrollments, and key metrics</li>
+            <li><strong>Inquiries</strong> - Manage student inquiries and track inquiry status</li>
+            <li><strong>Enrollment</strong> - Manage student enrollments and enrollment records</li>
+            <li><strong>Marketing Activities</strong> - Track marketing campaigns, leads, and ROI</li>
+            <li><strong>Schools</strong> - Manage feeder schools, competitor schools, and non-feeder schools</li>
+            <li><strong>Settings</strong> - Update profile information and preferences</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>3. Dashboard Module</h2>
+        <p>The Dashboard provides a comprehensive overview of key metrics, statistics, and analytics for the marketing ecosystem.</p>
+
+        <h3>Key Features:</h3>
+        <ul>
+            <li>View total inquiries and enrollments count</li>
+            <li>Monitor year-over-year and month-over-month growth percentages</li>
+            <li>View upcoming marketing activities</li>
+            <li>Analyze top preferred courses and strands</li>
+            <li>Track enrollment distribution by program and strand</li>
+            <li>View marketing source effectiveness and conversion rates</li>
+            <li>Access time-series charts for inquiries and enrollments</li>
+        </ul>
+
+        <h3>How to:</h3>
+
+        <h3>Filter Data by Date Range:</h3>
+        <ul>
+            <li>Navigate to <strong>Dashboard</strong></li>
+            <li>Use the date range picker at the top of the page</li>
+            <li>Select a start date and end date</li>
+            <li>All statistics and charts will automatically update to reflect the selected date range</li>
+        </ul>
+
+        <h3>View Detailed Analytics:</h3>
+        <ul>
+            <li>Navigate to <strong>Dashboard</strong></li>
+            <li>Scroll down to view various chart sections:
+                <ul>
+                    <li>Inquiries and Enrollments Trends - Line charts showing trends over time</li>
+                    <li>Top Courses/Strands - Bar charts showing most preferred programs</li>
+                    <li>Source Effectiveness - Pie charts showing marketing source performance</li>
+                </ul>
+            </li>
+            <li>Use the period selector (Week, Month, Year) to change the time period for charts</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>4. Inquiries Module</h2>
+        <p>The Inquiries module allows admins to manage student inquiries, track inquiry status, and convert inquiries to enrollments.</p>
+
+        <h3>Key Features:</h3>
+        <ul>
+            <li>Create new student inquiries</li>
+            <li>View and search inquiry records</li>
+            <li>Update inquiry status and information</li>
+            <li>Filter inquiries by student type, status, and date range</li>
+            <li>Convert inquiries to enrollments</li>
+            <li>View inquiry details and notes</li>
+            <li>Track inquiry sources and referral information</li>
+        </ul>
+
+        <h3>How to:</h3>
+
+        <h3>Create a New Inquiry:</h3>
+        <ol>
+            <li>Navigate to <strong>Inquiries</strong> from the sidebar</li>
+            <li>Click the <strong>Add Inquiry</strong> button</li>
+            <li>Fill in the required information:
+                <ul>
+                    <li>Inquiry Type (Walk-in, Phone, Email, Online, etc.)</li>
+                    <li>Student Type (Tertiary/College or Senior High)</li>
+                    <li>First Name and Last Name</li>
+                    <li>Email Address</li>
+                    <li>Mobile Number</li>
+                    <li>Present School (if applicable)</li>
+                    <li>Program(s) of interest</li>
+                    <li>How did you find out about us (marketing sources)</li>
+                    <li>Referral source (if applicable)</li>
+                    <li>Inquiry Date</li>
+                </ul>
+            </li>
+            <li>Click <strong>Submit Inquiry</strong> to save</li>
+        </ol>
+
+        <h3>Update Inquiry Status:</h3>
+        <ul>
+            <li>Navigate to <strong>Inquiries</strong></li>
+            <li>Locate the inquiry in the table</li>
+            <li>Click the <strong>Edit</strong> button (pencil icon) next to the inquiry</li>
+            <li>Update the status field (For follow up, Reserved, Enrolled, Enrolled to other STI, Enroll to other school, Undecided)</li>
+            <li>Add or modify notes if needed</li>
+            <li>Click <strong>Update Inquiry</strong> to save changes</li>
+        </ul>
+
+        <h3>Convert Inquiry to Enrollment:</h3>
+        <ul>
+            <li>Navigate to <strong>Inquiries</strong></li>
+            <li>Locate the inquiry you want to convert</li>
+            <li>Click the <strong>Enroll</strong> button next to the inquiry</li>
+            <li>Confirm the enrollment in the dialog box</li>
+            <li>Fill in any additional enrollment information required</li>
+            <li>The inquiry will be converted to an enrollment record</li>
+        </ul>
+
+        <h3>Filter and Search Inquiries:</h3>
+        <ul>
+            <li>Use the search box to search by name, email, or program</li>
+            <li>Use the Student Type filter to show only College or Senior High inquiries</li>
+            <li>Use the Status filter to show inquiries by status</li>
+            <li>Use the date range picker to filter inquiries by date</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>5. Enrollment Module</h2>
+        <p>The Enrollment module allows admins to manage student enrollment records, track enrollment statistics, and categorize students by type.</p>
+
+        <h3>Key Features:</h3>
+        <ul>
+            <li>Create new enrollment records</li>
+            <li>View and search enrollment records</li>
+            <li>Edit enrollment information</li>
+            <li>Delete enrollment records</li>
+            <li>Filter enrollments by student type (All, Freshmen, Transferees, STI Transferees)</li>
+            <li>View enrollment statistics (Total Enrolled, New Enrollments, Conversion Rate, Most Enrolled Program)</li>
+            <li>Track enrollment by program and strand</li>
+        </ul>
+
+        <h3>How to:</h3>
+
+        <h3>Add a New Enrollment:</h3>
+        <ol>
+            <li>Navigate to <strong>Enrollment</strong> from the sidebar</li>
+            <li>Click the <strong>Add Student</strong> button</li>
+            <li>Fill in the student information:
+                <ul>
+                    <li>Type of Student (College or Senior High)</li>
+                    <li>Student Classification (Freshman, Transferee, STI Transferee - for College students)</li>
+                    <li>Student Number (required for STI Transferees, must be 11 digits)</li>
+                    <li>First Name, Middle Name, Last Name</li>
+                    <li>Date of Birth</li>
+                    <li>Civil Status</li>
+                    <li>Gender</li>
+                    <li>Contact Information (Landline, Mobile Number, Email)</li>
+                    <li>Last School Attended</li>
+                    <li>School Name (if applicable)</li>
+                    <li>Program(s) or Strand(s)</li>
+                </ul>
+            </li>
+            <li>Click <strong>Add Student</strong> to save the enrollment</li>
+        </ol>
+
+        <h3>Edit an Enrollment:</h3>
+        <ul>
+            <li>Navigate to <strong>Enrollment</strong></li>
+            <li>Locate the enrollment record in the table</li>
+            <li>Click the <strong>Edit</strong> button (pencil icon) next to the record</li>
+            <li>Modify the information as needed</li>
+            <li>Click <strong>Update Student</strong> to save changes</li>
+        </ul>
+
+        <h3>View Enrollment Statistics:</h3>
+        <ul>
+            <li>Navigate to <strong>Enrollment</strong></li>
+            <li>View the statistics cards at the top of the page:
+                <ul>
+                    <li>Total Enrolled - Total count of all enrolled students</li>
+                    <li>Students Added This Year - Count of students enrolled in the current year</li>
+                    <li>Conversion Rate - Percentage of inquiries converted to enrollments</li>
+                    <li>Most Enrolled Program - Program with the highest number of enrollments</li>
+                </ul>
+            </li>
+        </ul>
+
+        <h3>Filter Enrollments by Student Type:</h3>
+        <ul>
+            <li>Navigate to <strong>Enrollment</strong></li>
+            <li>Use the tabs at the top of the table:
+                <ul>
+                    <li><strong>Enrolled</strong> - Shows all enrolled students</li>
+                    <li><strong>Freshmen</strong> - Shows only freshman students</li>
+                    <li><strong>Transferees</strong> - Shows only transferee students</li>
+                    <li><strong>STI Transferee</strong> - Shows only STI transferee students</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>6. Marketing Activities Module</h2>
+        <p>The Marketing Activities module allows admins to track marketing campaigns, monitor lead generation, and analyze marketing ROI and conversion rates.</p>
+
+        <h3>Key Features:</h3>
+        <ul>
+            <li>Create and manage marketing activity records</li>
+            <li>Track leads generated from each activity</li>
+            <li>Monitor marketing budget and spending</li>
+            <li>Calculate cost per lead and campaign ROI</li>
+            <li>View conversion rates by event</li>
+            <li>Filter activities by time period (All, This Week, This Month, Next Month)</li>
+            <li>Associate activities with feeder schools</li>
+            <li>Manage event titles</li>
+        </ul>
+
+        <h3>How to:</h3>
+
+        <h3>Add a Marketing Activity:</h3>
+        <ol>
+            <li>Navigate to <strong>Marketing Activities</strong> from the sidebar</li>
+            <li>Click the <strong>Add Activity</strong> button</li>
+            <li>Fill in the activity details:
+                <ul>
+                    <li>Title of Event - Select from existing titles or create a new one</li>
+                    <li>School - Select the feeder school associated with the activity (optional)</li>
+                    <li>Date - Select the date of the activity</li>
+                    <li>Budget - Enter the budget amount (e.g., ₱250,000)</li>
+                    <li>Leads Generated - Enter the number of leads generated from this activity</li>
+                </ul>
+            </li>
+            <li>Click <strong>Add Activity</strong> to save</li>
+        </ol>
+
+        <h3>Create a New Event Title:</h3>
+        <ul>
+            <li>When adding or editing a marketing activity, in the "Title of Event" dropdown, select <strong>Add Activity</strong></li>
+            <li>Enter the new event title in the input field</li>
+            <li>Click <strong>Add</strong> to create the new title</li>
+            <li>The new title will be available for selection in future activities</li>
+        </ul>
+
+        <h3>View Marketing Metrics:</h3>
+        <ul>
+            <li>Navigate to <strong>Marketing Activities</strong></li>
+            <li>View the metrics cards at the top:
+                <ul>
+                    <li><strong>Lead Generation</strong> - Total leads generated in the selected period</li>
+                    <li><strong>Cost per Lead</strong> - Average cost per lead (Total Budget / Total Leads)</li>
+                    <li><strong>Campaign ROI</strong> - Leads per graduating student</li>
+                    <li><strong>Conversion Rate</strong> - Percentage of leads converted to enrolled students (click to view detailed breakdown)</li>
+                </ul>
+            </li>
+        </ul>
+
+        <h3>View Conversion Rate by Event:</h3>
+        <ul>
+            <li>Navigate to <strong>Marketing Activities</strong></li>
+            <li>Click on the <strong>Conversion Rate</strong> card</li>
+            <li>A dialog will open showing:
+                <ul>
+                    <li>Bar chart displaying conversion rates for each marketing event</li>
+                    <li>Event details with leads generated and conversion percentages</li>
+                    <li>Summary statistics (Total Events, Total Leads, Average Rate)</li>
+                </ul>
+            </li>
+        </ul>
+
+        <h3>Filter Activities by Time Period:</h3>
+        <ul>
+            <li>Navigate to <strong>Marketing Activities</strong></li>
+            <li>Use the tabs above the activities table:
+                <ul>
+                    <li><strong>All</strong> - Shows all marketing activities</li>
+                    <li><strong>This Week</strong> - Shows activities from the current week</li>
+                    <li><strong>This Month</strong> - Shows activities from the current month</li>
+                    <li><strong>Next Month</strong> - Shows activities scheduled for next month</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>7. Schools Module</h2>
+        <p>The Schools module allows admins to manage feeder schools, competitor schools, and non-feeder schools, including their courses, student counts, and other relevant information.</p>
+
+        <h3>Key Features:</h3>
+        <ul>
+            <li>Create and manage school records</li>
+            <li>Categorize schools as Feeder, Competitor, or Non-Feeder</li>
+            <li>Add courses offered by feeder schools</li>
+            <li>Track student counts (Grade 10 and Grade 12) for feeder schools</li>
+            <li>Record competitor school information (building/grounds, campus size, facilities, tuition fees)</li>
+            <li>Filter schools by type, status, and school type (Public/Private)</li>
+            <li>Search schools by name</li>
+        </ul>
+
+        <h3>How to:</h3>
+
+        <h3>Add a Feeder School:</h3>
+        <ol>
+            <li>Navigate to <strong>Schools</strong> from the sidebar</li>
+            <li>Click the <strong>Add School</strong> button</li>
+            <li>Select <strong>Feeder School</strong> as the school type</li>
+            <li>Fill in the school information:
+                <ul>
+                    <li>School Name</li>
+                    <li>Distance (km away from your school)</li>
+                    <li>Type of School (Public or Private)</li>
+                    <li>Total Students for Grade 10</li>
+                    <li>Total Students for Grade 12</li>
+                    <li>Description (optional)</li>
+                </ul>
+            </li>
+            <li>Add courses offered:
+                <ul>
+                    <li>Click <strong>Add Course</strong></li>
+                    <li>Enter the course name</li>
+                    <li>Enter the estimated tuition fee</li>
+                    <li>Repeat for additional courses</li>
+                </ul>
+            </li>
+            <li>Select the school status (Active or Inactive)</li>
+            <li>Click <strong>Add School</strong> to save</li>
+        </ol>
+
+        <h3>Add a Competitor School:</h3>
+        <ol>
+            <li>Navigate to <strong>Schools</strong></li>
+            <li>Click the <strong>Add School</strong> button</li>
+            <li>Select <strong>School Competitor</strong> as the school type</li>
+            <li>Fill in the school information:
+                <ul>
+                    <li>School Name</li>
+                    <li>Distance (km away)</li>
+                    <li>Type of School (Public or Private)</li>
+                    <li>Building or Grounds (B for Building, G for Campus Grounds)</li>
+                    <li>Campus Size (L for Larger, E for Equal, S for Smaller than your campus)</li>
+                    <li>Facilities (B for Better, E for Equal, P for Poorer compared to your campus)</li>
+                    <li>Estimated Total Tuition Fee per Term/School Year</li>
+                </ul>
+            </li>
+            <li>Select the school status (Active or Inactive)</li>
+            <li>Click <strong>Add School</strong> to save</li>
+        </ol>
+
+        <h3>Edit a School:</h3>
+        <ul>
+            <li>Navigate to <strong>Schools</strong></li>
+            <li>Locate the school in the appropriate tab (Feeder Schools, Competitors, or Non-Feeder Schools)</li>
+            <li>Click the <strong>Edit</strong> button (pencil icon) next to the school</li>
+            <li>Modify the information as needed</li>
+            <li>For feeder schools, you can add, edit, or remove courses</li>
+            <li>Click <strong>Update School</strong> to save changes</li>
+        </ul>
+
+        <h3>Filter Schools:</h3>
+        <ul>
+            <li>Use the search box to search schools by name</li>
+            <li>Use the Status filter to show only Active or Inactive schools</li>
+            <li>Use the School Type filter to show only Public or Private schools</li>
+            <li>Use the tabs to view schools by category (Feeder Schools, Competitors, Non-Feeder Schools)</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>8. Settings Module</h2>
+        <p>The Settings module allows admins to update their profile information, manage notification preferences, and change their password.</p>
+
+        <h3>Key Features:</h3>
+        <ul>
+            <li>Update profile information (First Name, Last Name)</li>
+            <li>Manage notification preferences</li>
+            <li>Change account password</li>
+            <li>Toggle dark mode/light mode</li>
+        </ul>
+
+        <h3>How to:</h3>
+
+        <h3>Update Profile Information:</h3>
+        <ul>
+            <li>Navigate to <strong>Settings</strong> from the sidebar</li>
+            <li>In the "Profile Settings" section, update your First Name and Last Name</li>
+            <li>Click <strong>Save Changes</strong> to update your profile</li>
+        </ul>
+
+        <h3>Change Password:</h3>
+        <ul>
+            <li>Navigate to <strong>Settings</strong></li>
+            <li>In the "Security Settings" section, enter:
+                <ul>
+                    <li>Current Password</li>
+                    <li>New Password</li>
+                    <li>Confirm New Password</li>
+                </ul>
+            </li>
+            <li>Click <strong>Change Password</strong> to update</li>
+        </ul>
+
+        <h3>Toggle Dark Mode:</h3>
+        <ul>
+            <li>Navigate to <strong>Settings</strong></li>
+            <li>In the "Appearance Settings" section, toggle the <strong>Dark Mode</strong> switch</li>
+            <li>The interface will immediately switch between light and dark themes</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>9. Logging Out</h2>
+        <p>To log out of the system:</p>
+        <ul>
+            <li>Click the <strong>Logout</strong> button located at the bottom of the sidebar</li>
+            <li>You will be redirected to the login page</li>
+            <li>For security, always log out when you are finished using the system</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>10. Troubleshooting</h2>
+
+        <h3>Common Issues:</h3>
+
+        <h3>Cannot Log In:</h3>
+        <ul>
+            <li>Verify that you are using the correct email address and password</li>
+            <li>Ensure your Microsoft 365 account is active</li>
+            <li>Contact your system administrator if you have forgotten your password</li>
+            <li>Clear your browser cache and cookies, then try again</li>
+        </ul>
+
+        <h3>Module Not Visible:</h3>
+        <ul>
+            <li>If a module is not visible in the sidebar, you may not have permission to access it</li>
+            <li>Contact your Superadmin to request access to the module</li>
+            <li>The Superadmin can assign module permissions through the Superadmin Dashboard</li>
+        </ul>
+
+        <h3>Data Not Updating:</h3>
+        <ul>
+            <li>Click the refresh button (circular arrow icon) in the top-right corner of the page</li>
+            <li>Check your internet connection</li>
+            <li>Try logging out and logging back in</li>
+            <li>If the issue persists, contact your system administrator</li>
+        </ul>
+
+        <h3>Error Messages:</h3>
+        <ul>
+            <li>Read the error message carefully - it usually indicates what went wrong</li>
+            <li>Common errors include:
+                <ul>
+                    <li>Required fields not filled - Ensure all required fields are completed</li>
+                    <li>Invalid email format - Check that email addresses are correctly formatted</li>
+                    <li>Duplicate entries - Some fields (like email) must be unique</li>
+                    <li>Network errors - Check your internet connection</li>
+                </ul>
+            </li>
+            <li>If you cannot resolve the error, contact your system administrator with the error message</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>11. Support and Contact</h2>
+        <p>For technical support, questions, or to report issues:</p>
+        <ul>
+            <li>Contact your system administrator</li>
+            <li>Reach out to the IT support team</li>
+            <li>Provide detailed information about the issue, including:
+                <ul>
+                    <li>What you were trying to do</li>
+                    <li>What error message (if any) you received</li>
+                    <li>Your user role and email address</li>
+                    <li>Screenshots of the issue (if applicable)</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+</body>
+</html>
+

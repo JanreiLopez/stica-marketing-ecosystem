@@ -11,11 +11,14 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Textarea } from "@/components/ui/textarea"
-import { Search, Plus, Edit, Trash2, Users, BookOpen, X, School, Maximize2, Minimize2 } from "lucide-react"
+import { Search, Plus, Edit, Trash2, Users, BookOpen, X, School, Maximize2, Minimize2, CalendarIcon } from "lucide-react"
 import { AdminSidebar } from "@/components/admin-sidebar"
 import { useRouter } from "next/navigation"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { supabase } from "@/lib/supabase-client"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { format } from "date-fns"
 
 export default function SchoolsPage() {
   const router = useRouter()
@@ -36,12 +39,23 @@ export default function SchoolsPage() {
     grade12Students: "",
     description: "",
     courses: [] as Array<{ id: number; name: string; tuitionFee: string }>,
+    // Competitor-specific fields
+    buildingOrGrounds: "" as "" | "B" | "G",
+    campusSize: "" as "" | "L" | "E" | "S",
+    facilities: "" as "" | "B" | "E" | "P",
+    estimatedTuitionFee: "",
   })
 
   const [schools, setSchools] = useState<Array<any>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isTableFullscreen, setIsTableFullscreen] = useState(false)
+  const [userPermissions, setUserPermissions] = useState<string[]>([]); // New state for user permissions
+  
+  // Date range state - Dynamic dates: start date is January 1 of last year, end date is December 31 of this year (for year-over-year comparison)
+  const currentYear = new Date().getFullYear()
+  const [startDate, setStartDate] = useState<Date | undefined>(new Date(currentYear - 1, 0, 1)) // January 1 of last year
+  const [endDate, setEndDate] = useState<Date | undefined>(new Date(currentYear, 11, 31)) // December 31 of this year
 
   const filteredPartners = schools.filter((school: any) => {
     const matchesSearch = school.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -72,6 +86,18 @@ export default function SchoolsPage() {
     if (!schoolFormData.name.trim()) return
     
     try {
+      // For competitor schools, store additional fields in description as JSON
+      let description = schoolFormData.description
+      if (schoolFormData.type === "competitor") {
+        const competitorData = {
+          buildingOrGrounds: schoolFormData.buildingOrGrounds,
+          campusSize: schoolFormData.campusSize,
+          facilities: schoolFormData.facilities,
+          estimatedTuitionFee: schoolFormData.estimatedTuitionFee,
+        }
+        description = JSON.stringify(competitorData)
+      }
+
       const { data, error } = await supabase
         .from('schools')
         .insert({
@@ -82,15 +108,15 @@ export default function SchoolsPage() {
           km_away: schoolFormData.kmAway ? parseFloat(schoolFormData.kmAway) : null,
           grade10_students: schoolFormData.grade10Students ? parseInt(schoolFormData.grade10Students) : null,
           grade12_students: schoolFormData.grade12Students ? parseInt(schoolFormData.grade12Students) : null,
-          description: schoolFormData.description,
+          description: description,
         })
         .select()
         .single()
       
       if (error) throw error
       
-      // Add courses if any
-      if (schoolFormData.courses.length > 0 && data) {
+      // Add courses if any (only for feeder schools)
+      if (schoolFormData.type === "feeder" && schoolFormData.courses.length > 0 && data) {
         const coursesData = schoolFormData.courses.map(course => ({
           school_id: data.id,
           course_name: course.name,
@@ -136,6 +162,18 @@ export default function SchoolsPage() {
       const nameChanged = oldSchoolName !== schoolFormData.name
       console.log('Name change check:', { nameChanged, oldName: oldSchoolName, newName: schoolFormData.name })
       
+      // For competitor schools, store additional fields in description as JSON
+      let description = schoolFormData.description
+      if (schoolFormData.type === "competitor") {
+        const competitorData = {
+          buildingOrGrounds: schoolFormData.buildingOrGrounds,
+          campusSize: schoolFormData.campusSize,
+          facilities: schoolFormData.facilities,
+          estimatedTuitionFee: schoolFormData.estimatedTuitionFee,
+        }
+        description = JSON.stringify(competitorData)
+      }
+
       // Update the school record
       const { error: updateSchoolError, data: updatedSchoolData } = await supabase
         .from('schools')
@@ -147,7 +185,7 @@ export default function SchoolsPage() {
           km_away: schoolFormData.kmAway ? parseFloat(schoolFormData.kmAway) : null,
           grade10_students: schoolFormData.grade10Students ? parseInt(schoolFormData.grade10Students) : null,
           grade12_students: schoolFormData.grade12Students ? parseInt(schoolFormData.grade12Students) : null,
-          description: schoolFormData.description,
+          description: description,
         })
         .eq('id', editingSchoolId)
         .select() // Add select to get the updated record
@@ -192,50 +230,53 @@ export default function SchoolsPage() {
         console.log('School name unchanged, no need to update marketing activities')
       }
       
-      // Handle courses - separate existing courses from new ones
-      const existingCourses = schoolFormData.courses.filter(course => course.id <= 1000000000); // Database IDs
-      const newCourses = schoolFormData.courses.filter(course => course.id > 1000000000); // Temporary IDs
-      
-      // Find deleted courses (in original but not in current)
-      const currentCourseIds = existingCourses.map(course => course.id);
-      const deletedCourses = originalCourses.filter(course => !currentCourseIds.includes(course.id));
-      
-      // Delete removed courses
-      if (deletedCourses.length > 0) {
-        const { error: deleteError } = await supabase
-          .from('school_courses')
-          .delete()
-          .in('id', deletedCourses.map(course => course.id))
+      // Handle courses - only for feeder schools
+      if (schoolFormData.type === "feeder") {
+        // Separate existing courses from new ones
+        const existingCourses = schoolFormData.courses.filter(course => course.id <= 1000000000); // Database IDs
+        const newCourses = schoolFormData.courses.filter(course => course.id > 1000000000); // Temporary IDs
         
-        if (deleteError) throw deleteError
-      }
-      
-      // Update existing courses
-      for (const course of existingCourses) {
-        const { error: updateError } = await supabase
-          .from('school_courses')
-          .update({
+        // Find deleted courses (in original but not in current)
+        const currentCourseIds = existingCourses.map(course => course.id);
+        const deletedCourses = originalCourses.filter(course => !currentCourseIds.includes(course.id));
+        
+        // Delete removed courses
+        if (deletedCourses.length > 0) {
+          const { error: deleteError } = await supabase
+            .from('school_courses')
+            .delete()
+            .in('id', deletedCourses.map(course => course.id))
+          
+          if (deleteError) throw deleteError
+        }
+        
+        // Update existing courses
+        for (const course of existingCourses) {
+          const { error: updateError } = await supabase
+            .from('school_courses')
+            .update({
+              course_name: course.name,
+              tuition_fee: course.tuitionFee ? parseFloat(course.tuitionFee) : null,
+            })
+            .eq('id', course.id)
+          
+          if (updateError) throw updateError
+        }
+        
+        // Add new courses
+        if (newCourses.length > 0) {
+          const coursesData = newCourses.map(course => ({
+            school_id: editingSchoolId,
             course_name: course.name,
             tuition_fee: course.tuitionFee ? parseFloat(course.tuitionFee) : null,
-          })
-          .eq('id', course.id)
-        
-        if (updateError) throw updateError
-      }
-      
-      // Add new courses
-      if (newCourses.length > 0) {
-        const coursesData = newCourses.map(course => ({
-          school_id: editingSchoolId,
-          course_name: course.name,
-          tuition_fee: course.tuitionFee ? parseFloat(course.tuitionFee) : null,
-        }))
-        
-        const { error: insertError } = await supabase
-          .from('school_courses')
-          .insert(coursesData)
+          }))
           
-        if (insertError) throw insertError
+          const { error: insertError } = await supabase
+            .from('school_courses')
+            .insert(coursesData)
+            
+          if (insertError) throw insertError
+        }
       }
       
       // Refresh schools data
@@ -273,6 +314,27 @@ export default function SchoolsPage() {
       tuitionFee: course.tuition_fee ? course.tuition_fee.toString() : ""
     })) || [];
     
+    // Parse competitor data from description if it's a competitor school
+    let description = school.description || ""
+    let buildingOrGrounds: "" | "B" | "G" = ""
+    let campusSize: "" | "L" | "E" | "S" = ""
+    let facilities: "" | "B" | "E" | "P" = ""
+    let estimatedTuitionFee = ""
+    
+    if (school.type === "competitor" && school.description) {
+      try {
+        const competitorData = JSON.parse(school.description)
+        buildingOrGrounds = competitorData.buildingOrGrounds || ""
+        campusSize = competitorData.campusSize || ""
+        facilities = competitorData.facilities || ""
+        estimatedTuitionFee = competitorData.estimatedTuitionFee || ""
+        description = "" // Clear description for competitor schools
+      } catch (e) {
+        // If parsing fails, treat as regular description
+        console.error("Error parsing competitor data:", e)
+      }
+    }
+    
     setSchoolFormData({
       name: school.name || "",
       status: school.status || "Active",
@@ -281,8 +343,12 @@ export default function SchoolsPage() {
       kmAway: school.km_away ? school.km_away.toString() : "",
       grade10Students: school.grade10_students ? school.grade10_students.toString() : "",
       grade12Students: school.grade12_students ? school.grade12_students.toString() : "",
-      description: school.description || "",
+      description: description,
       courses: formattedCourses,
+      buildingOrGrounds: buildingOrGrounds,
+      campusSize: campusSize,
+      facilities: facilities,
+      estimatedTuitionFee: estimatedTuitionFee,
     });
     
     // Store original courses for tracking deletions
@@ -403,10 +469,56 @@ export default function SchoolsPage() {
   }, [])
 
   useEffect(() => {
-    fetchSchools()
-  }, [fetchSchools])
+    const fetchUserPermissions = async () => {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        console.error('Error fetching user:', authError);
+        router.push('/login'); // Redirect to login if not authenticated
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('permissions')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        setUserPermissions([]);
+      } else {
+        try {
+          const permissions = typeof profile.permissions === 'string'
+            ? JSON.parse(profile.permissions)
+            : profile.permissions;
+          setUserPermissions(permissions || []);
+        } catch (parseError) {
+          console.error('Error parsing permissions:', parseError);
+          setUserPermissions([]);
+        }
+      }
+    };
+
+    fetchUserPermissions();
+    fetchSchools();
+  }, [fetchSchools, router])
 
   const resetForm = () => {
+    setSchoolFormData({
+      name: "",
+      status: "Active",
+      type: "feeder" as "feeder" | "competitor" | "non-feeder",
+      schoolType: "public" as "public" | "private",
+      kmAway: "",
+      grade10Students: "",
+      grade12Students: "",
+      description: "",
+      courses: [] as Array<{ id: number; name: string; tuitionFee: string }>,
+      buildingOrGrounds: "" as "" | "B" | "G",
+      campusSize: "" as "" | "L" | "E" | "S",
+      facilities: "" as "" | "B" | "E" | "P",
+      estimatedTuitionFee: "",
+    })
     setSchoolFormData({ 
       name: "", 
       status: "Active", 
@@ -479,71 +591,145 @@ export default function SchoolsPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900">
         {/* Sidebar Navigation - Fixed */}
-        <AdminSidebar onLogout={handleLogout} />
+        <AdminSidebar onLogout={handleLogout} userPermissions={userPermissions} />
 
         {/* Main Content - Account for fixed sidebar */}
         <main className="ml-64 p-6">
           
           <div className="mb-6">
-            <h1 className="text-3xl font-serif font-bold text-slate-700 dark:text-slate-200 mb-2">Schools Management</h1>
-            <p className="text-slate-600 dark:text-slate-400">Manage schools, programs, and academic departments</p>
-          </div>
-
-          {/* Actions Bar */}
-          <div className="flex items-center justify-between mb-6 gap-4">
-            <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search schools..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={schoolTypeFilter} onValueChange={setSchoolTypeFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="School Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="public">Public</SelectItem>
-                  <SelectItem value="private">Private</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setIsTableFullscreen(true)}
-                className="h-8 w-8"
-              >
-                <Maximize2 className="h-4 w-4" />
-              </Button>
-              <Button
-                className="bg-primary hover:bg-primary/90"
-                onClick={() => setIsAddDialogOpen(true)}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add School
-              </Button>
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h1 className="text-3xl font-serif font-bold text-slate-700 dark:text-slate-200 mb-2">Schools Management</h1>
+                <p className="text-slate-600 dark:text-slate-400">Manage schools, programs, and academic departments</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col">
+                  <Label htmlFor="start-date" className="text-sm font-medium text-foreground mb-1">Start Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="start-date"
+                        variant="outline"
+                        className="w-[140px] justify-start text-left font-normal border border-border focus-visible:ring-ring focus-visible:border-ring h-9 px-3"
+                      >
+                        {startDate ? format(startDate, "MM/dd/yyyy") : "Select date"}
+                        <CalendarIcon className="ml-auto h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        mode="single"
+                        selected={startDate}
+                        onSelect={setStartDate}
+                        captionLayout="dropdown"
+                        fromYear={new Date().getFullYear() - 10}
+                        toYear={new Date().getFullYear() + 10}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="flex flex-col">
+                  <Label htmlFor="end-date" className="text-sm font-medium text-foreground mb-1">End Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="end-date"
+                        variant="outline"
+                        className="w-[140px] justify-start text-left font-normal border border-border focus-visible:ring-ring focus-visible:border-ring h-9 px-3"
+                      >
+                        {endDate ? format(endDate, "MM/dd/yyyy") : "Select date"}
+                        <CalendarIcon className="ml-auto h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        mode="single"
+                        selected={endDate}
+                        onSelect={setEndDate}
+                        captionLayout="dropdown"
+                        fromYear={new Date().getFullYear() - 10}
+                        toYear={new Date().getFullYear() + 10}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const currentYear = new Date().getFullYear()
+                    setStartDate(new Date(currentYear - 1, 0, 1)) // January 1 of last year
+                    setEndDate(new Date(currentYear, 11, 31)) // December 31 of this year
+                    fetchSchools()
+                  }}
+                  disabled={loading}
+                  className="h-9 w-9 p-0"
+                  title={loading ? 'Refreshing...' : 'Refresh Data'}
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </Button>
+              </div>
             </div>
           </div>
 
           {/* Tabs-based School Tables */}
           <Card className="shadow-lg border-border">
             <CardContent className="p-6">
+              {/* Search and filters inside table */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="relative w-72">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search schools..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={schoolTypeFilter} onValueChange={setSchoolTypeFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="School Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="public">Public</SelectItem>
+                      <SelectItem value="private">Private</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsTableFullscreen(true)}
+                    className="h-8 w-8"
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    className="bg-primary hover:bg-primary/90"
+                    onClick={() => setIsAddDialogOpen(true)}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add School
+                  </Button>
+                </div>
+              </div>
               <Tabs defaultValue="feeder" className="w-full">
                 <TabsList className="mb-6 bg-muted/50 p-1 h-auto">
                   <TabsTrigger 
@@ -775,7 +961,6 @@ export default function SchoolsPage() {
                       <TableHeader>
                         <TableRow className="border-b border-border hover:bg-transparent">
                           <TableHead className="font-semibold text-foreground">School Name</TableHead>
-                          <TableHead className="font-semibold text-foreground">Courses Offered</TableHead>
                           <TableHead className="font-semibold text-foreground">Distance (km)</TableHead>
                           <TableHead className="font-semibold text-foreground">Status</TableHead>
                           <TableHead className="font-semibold text-foreground text-right">Actions</TableHead>
@@ -784,7 +969,7 @@ export default function SchoolsPage() {
                       <TableBody>
                         {filteredNonFeeder.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
+                            <TableCell colSpan={4} className="text-center text-muted-foreground py-12">
                               <div className="flex flex-col items-center gap-2">
                                 <School className="h-8 w-8 text-muted-foreground/50" />
                                 <p className="text-sm">No non-feeder schools found</p>
@@ -983,73 +1168,160 @@ export default function SchoolsPage() {
               </>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Enter school description"
-                value={schoolFormData.description}
-                onChange={(e) => setSchoolFormData(prev => ({ ...prev, description: e.target.value }))}
-                className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500 min-h-24"
-                rows={4}
-              />
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-medium">Courses Offered</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addCourse}
-                  className="flex items-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Course
-                </Button>
-              </div>
-              
-              {schoolFormData.courses.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No courses added yet. Click "Add Course" to add one.</p>
-              ) : (
-                <div className="space-y-3">
-                  {schoolFormData.courses.map((course) => (
-                    <div key={course.id} className="flex gap-2 items-start p-3 border border-gray-300 rounded-md">
-                      <div className="flex-1 space-y-2">
-                        <Input
-                          placeholder="Course name"
-                          value={course.name}
-                          onChange={(e) => updateCourse(course.id, "name", e.target.value)}
-                          className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
-                        />
-                        <Input
-                          type="number"
-                          placeholder="Estimated tuition fee"
-                          value={course.tuitionFee}
-                          onChange={(e) => {
-                            const value = e.target.value
-                            if (value === "" || (!isNaN(Number(value)) && Number(value) >= 0)) {
-                              updateCourse(course.id, "tuitionFee", value)
-                            }
-                          }}
-                          className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeCourse(course.id)}
-                        className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+            {schoolFormData.type === "competitor" && (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-base font-medium">In a building (B) or has campus grounds (G)</Label>
+                  <RadioGroup
+                    value={schoolFormData.buildingOrGrounds}
+                    onValueChange={(value) => setSchoolFormData(prev => ({ ...prev, buildingOrGrounds: value as "B" | "G" }))}
+                    className="flex gap-6"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <RadioGroupItem value="B" id="building" className="size-5 border border-gray-400" />
+                      <Label htmlFor="building" className="font-medium cursor-pointer">Building (B)</Label>
                     </div>
-                  ))}
+                    <div className="flex items-center space-x-3">
+                      <RadioGroupItem value="G" id="grounds" className="size-5 border border-gray-400" />
+                      <Label htmlFor="grounds" className="font-medium cursor-pointer">Campus Grounds (G)</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
-              )}
-            </div>
+
+                <div className="space-y-2">
+                  <Label className="text-base font-medium">Is your competitor's campus: Larger (L), Equal (E), or Smaller (S) than your campus?</Label>
+                  <RadioGroup
+                    value={schoolFormData.campusSize}
+                    onValueChange={(value) => setSchoolFormData(prev => ({ ...prev, campusSize: value as "L" | "E" | "S" }))}
+                    className="flex gap-6"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <RadioGroupItem value="L" id="larger" className="size-5 border border-gray-400" />
+                      <Label htmlFor="larger" className="font-medium cursor-pointer">Larger (L)</Label>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <RadioGroupItem value="E" id="equal-size" className="size-5 border border-gray-400" />
+                      <Label htmlFor="equal-size" className="font-medium cursor-pointer">Equal (E)</Label>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <RadioGroupItem value="S" id="smaller" className="size-5 border border-gray-400" />
+                      <Label htmlFor="smaller" className="font-medium cursor-pointer">Smaller (S)</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-base font-medium">Are your competitor's facilities: Better (B), Equal (E), or Poorer (P) compared to your campus?</Label>
+                  <RadioGroup
+                    value={schoolFormData.facilities}
+                    onValueChange={(value) => setSchoolFormData(prev => ({ ...prev, facilities: value as "B" | "E" | "P" }))}
+                    className="flex gap-6"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <RadioGroupItem value="B" id="better" className="size-5 border border-gray-400" />
+                      <Label htmlFor="better" className="font-medium cursor-pointer">Better (B)</Label>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <RadioGroupItem value="E" id="equal-facilities" className="size-5 border border-gray-400" />
+                      <Label htmlFor="equal-facilities" className="font-medium cursor-pointer">Equal (E)</Label>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <RadioGroupItem value="P" id="poorer" className="size-5 border border-gray-400" />
+                      <Label htmlFor="poorer" className="font-medium cursor-pointer">Poorer (P)</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="estimated-tuition-fee">Estimated Total Tuition Fee per Term for College or per School year for SHS (excluding voucher Amount)</Label>
+                  <Input
+                    id="estimated-tuition-fee"
+                    type="number"
+                    placeholder="Enter estimated tuition fee"
+                    value={schoolFormData.estimatedTuitionFee}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      if (value === "" || (!isNaN(Number(value)) && Number(value) >= 0)) {
+                        setSchoolFormData(prev => ({ ...prev, estimatedTuitionFee: value }))
+                      }
+                    }}
+                    className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                  />
+                </div>
+              </>
+            )}
+
+            {schoolFormData.type !== "competitor" && (
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Enter school description"
+                  value={schoolFormData.description}
+                  onChange={(e) => setSchoolFormData(prev => ({ ...prev, description: e.target.value }))}
+                  className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500 min-h-24"
+                  rows={4}
+                />
+              </div>
+            )}
+
+            {schoolFormData.type === "feeder" && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-medium">Courses Offered</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addCourse}
+                    className="flex items-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Course
+                  </Button>
+                </div>
+                
+                {schoolFormData.courses.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No courses added yet. Click "Add Course" to add one.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {schoolFormData.courses.map((course) => (
+                        <div key={course.id} className="flex gap-2 items-start p-3 border border-gray-300 rounded-md">
+                          <div className="flex-1 space-y-2">
+                            <Input
+                              placeholder="Course name"
+                              value={course.name}
+                              onChange={(e) => updateCourse(course.id, "name", e.target.value)}
+                              className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                            />
+                            <Input
+                              type="number"
+                              placeholder="Estimated tuition fee"
+                              value={course.tuitionFee}
+                              onChange={(e) => {
+                                const value = e.target.value
+                                if (value === "" || (!isNaN(Number(value)) && Number(value) >= 0)) {
+                                  updateCourse(course.id, "tuitionFee", value)
+                                }
+                              }}
+                              className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeCourse(course.id)}
+                            className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="school-status">Status</Label>
@@ -1212,17 +1484,19 @@ export default function SchoolsPage() {
               </>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="description-edit">Description</Label>
-              <Textarea
-                id="description-edit"
-                placeholder="Enter school description"
-                value={schoolFormData.description}
-                onChange={(e) => setSchoolFormData(prev => ({ ...prev, description: e.target.value }))}
-                className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500 min-h-24"
-                rows={4}
-              />
-            </div>
+            {schoolFormData.type !== "competitor" && (
+              <div className="space-y-2">
+                <Label htmlFor="description-edit">Description</Label>
+                <Textarea
+                  id="description-edit"
+                  placeholder="Enter school description"
+                  value={schoolFormData.description}
+                  onChange={(e) => setSchoolFormData(prev => ({ ...prev, description: e.target.value }))}
+                  className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500 min-h-24"
+                  rows={4}
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="school-status-edit">Status</Label>
@@ -1240,26 +1514,27 @@ export default function SchoolsPage() {
               </Select>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-medium">Courses Offered</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addCourse}
-                  className="flex items-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Course
-                </Button>
-              </div>
-              
-              {schoolFormData.courses.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No courses added yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {schoolFormData.courses.map((course) => (
+            {schoolFormData.type === "feeder" && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-medium">Courses Offered</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addCourse}
+                    className="flex items-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Course
+                  </Button>
+                </div>
+                
+                {schoolFormData.courses.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No courses added yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {schoolFormData.courses.map((course) => (
                     <div key={course.id} className="flex gap-2 items-start p-3 border border-gray-300 rounded-md">
                       <div className="flex-1 space-y-2">
                         <Input
@@ -1295,6 +1570,7 @@ export default function SchoolsPage() {
                 </div>
               )}
             </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-2">

@@ -3,10 +3,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Check, ChevronsUpDown } from "lucide-react"
-import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -15,17 +11,15 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AdminSidebar } from "@/components/admin-sidebar"
-import { Calendar } from "@/components/ui/calendar"
-import { format } from "date-fns"
+import { DateRangePicker } from "@/components/date-range-picker"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { KpiCard } from "@/components/kpi"
-import { Search, Eye, MessageSquare, Phone, Mail, Edit, CheckCircle, AlertCircle, ArrowRight, Plus, ChevronDown, GraduationCap, Users, School, Trash2, FileText, Maximize2, Minimize2, CalendarIcon } from "lucide-react"
+import { Search, Eye, MessageSquare, Phone, Mail, Edit, CheckCircle, AlertCircle, ArrowRight, Plus, ChevronDown, GraduationCap, Users, School, Trash2, FileText, Maximize2, Minimize2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Checkbox } from "@/components/ui/checkbox"
 import { supabase } from "@/lib/supabase-client"
 import { EnrollmentForm } from "@/components/enrollment-form"
-import { toast } from "sonner"
 import {
   StudentFormData,
   createEmptyStudentFormData,
@@ -71,7 +65,6 @@ type InquiryRecord = {
   studentType: string
   notes: string
   dateAdded: string
-  adminName: string
 }
 
 const normalizeStudentType = (value?: string | null) => {
@@ -101,7 +94,6 @@ const mapRowToInquiry = (row: Record<string, any>): InquiryRecord => {
     studentType: normalizeStudentType(row.student_type),
     notes: row.notes ?? "",
     dateAdded: formatDate(row.date_added ?? row.created_at),
-    adminName: row.admin_name ?? "Unknown Admin",
   }
   console.log("Mapped inquiry result:", result)
   return result
@@ -133,18 +125,11 @@ export default function InquiriesPage() {
   const [isSavingEnrollment, setIsSavingEnrollment] = useState(false)
   const [deletingInquiryId, setDeletingInquiryId] = useState<number | null>(null)
   const [isTableFullscreen, setIsTableFullscreen] = useState(false)
-  const [userPermissions, setUserPermissions] = useState<string[]>([])
-  const [marketingActivities, setMarketingActivities] = useState<Array<{ id: number; title: string; school: string; date: string }>>([])
-  const [allMarketingActivities, setAllMarketingActivities] = useState<Array<{ id: number; title: string; school: string; date: string }>>([])
-  const [loadingActivities, setLoadingActivities] = useState(false)
-  const [eventsPopoverOpen, setEventsPopoverOpen] = useState(false)
-  const [schools, setSchools] = useState<Array<{ id: number; name: string; type: string }>>([])
-  const [schoolPopoverOpen, setSchoolPopoverOpen] = useState(false)
-  const [inquiryDate, setInquiryDate] = useState<string>(new Date().toISOString().split("T")[0])
-  // Dynamic dates: start date is January 1 of last year, end date is December 31 of this year (for year-over-year comparison)
-  const currentYear = new Date().getFullYear()
-  const [startDate, setStartDate] = useState<Date | undefined>(new Date(currentYear - 1, 0, 1)) // January 1 of last year
-  const [endDate, setEndDate] = useState<Date | undefined>(new Date(currentYear, 11, 31)) // December 31 of this year
+  const today = new Date()
+  const oneYearLater = new Date(today)
+  oneYearLater.setFullYear(today.getFullYear() + 1)
+  const [startDate, setStartDate] = useState<Date | undefined>(today)
+  const [endDate, setEndDate] = useState<Date | undefined>(oneYearLater)
 
   const fetchInquiries = useCallback(async () => {
     setIsLoadingInquiries(true)
@@ -172,125 +157,6 @@ export default function InquiriesPage() {
   useEffect(() => {
     fetchInquiries()
   }, [fetchInquiries])
-
-  useEffect(() => {
-    const fetchUserPermissions = async () => {
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
-      if (authError || !user) {
-        console.error('Error fetching user:', authError)
-        router.push('/login')
-        return
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('permissions')
-        .eq('id', user.id)
-        .single()
-
-      if (profileError) {
-        console.error('Error fetching user profile:', profileError)
-        setUserPermissions([])
-      } else {
-        try {
-          const permissions = typeof profile.permissions === 'string'
-            ? JSON.parse(profile.permissions)
-            : profile.permissions
-          setUserPermissions(permissions || [])
-        } catch (parseError) {
-          console.error('Error parsing permissions:', parseError)
-          setUserPermissions([])
-        }
-      }
-    }
-
-    fetchUserPermissions()
-  }, [router])
-
-  // Fetch all schools
-  useEffect(() => {
-    const fetchSchools = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('schools')
-          .select('id, name, type')
-          .eq('status', 'Active')
-          .order('name', { ascending: true })
-
-        if (error) {
-          console.error('Error fetching schools:', error)
-          setSchools([])
-        } else {
-          setSchools(data || [])
-        }
-      } catch (error) {
-        console.error('Error fetching schools:', error)
-        setSchools([])
-      }
-    }
-
-    fetchSchools()
-  }, [])
-
-  // Fetch all marketing activities
-  useEffect(() => {
-    const fetchMarketingActivities = async () => {
-      setLoadingActivities(true)
-      try {
-        const response = await fetch('/api/marketing-activities')
-        const data = await response.json()
-        if (response.ok) {
-          const activities = data.map((activity: any) => ({
-            id: activity.id,
-            title: activity.title,
-            school: activity.school || '',
-            date: activity.date || ''
-          }))
-          setAllMarketingActivities(activities)
-        } else {
-          console.error('Failed to fetch marketing activities:', data.error)
-          setAllMarketingActivities([])
-        }
-      } catch (error) {
-        console.error('Error fetching marketing activities:', error)
-        setAllMarketingActivities([])
-      } finally {
-        setLoadingActivities(false)
-      }
-    }
-
-    fetchMarketingActivities()
-  }, [])
-
-  // Filter marketing activities based on present school and inquiry date
-  useEffect(() => {
-    if (!inquiryFormData.presentSchool || !inquiryDate) {
-      setMarketingActivities([])
-      return
-    }
-
-    // Find the selected school
-    const selectedSchool = schools.find(s => s.name === inquiryFormData.presentSchool)
-    
-    // If school is a feeder school, filter activities by school and date
-    if (selectedSchool && selectedSchool.type === 'feeder') {
-      const filtered = allMarketingActivities.filter((activity: any) => {
-        const activitySchool = activity.school || ''
-        const activityDate = activity.date || ''
-        
-        // Normalize dates for comparison (both should be YYYY-MM-DD format)
-        const normalizedInquiryDate = inquiryDate.split('T')[0] // Remove time if present
-        const normalizedActivityDate = activityDate.split('T')[0] // Remove time if present
-        
-        // Match school name and date
-        return activitySchool === selectedSchool.name && normalizedActivityDate === normalizedInquiryDate
-      })
-      setMarketingActivities(filtered)
-    } else {
-      // For non-feeder schools, show no activities
-      setMarketingActivities([])
-    }
-  }, [inquiryFormData.presentSchool, inquiryDate, schools, allMarketingActivities])
 
   // Helper function to check if a date is today
   const isToday = (dateString: string) => {
@@ -386,10 +252,6 @@ export default function InquiriesPage() {
     const eventsDescription = fullInquiry.events_description || ""
     const othersSpecify = fullInquiry.others_specify || ""
     const presentSchool = fullInquiry.present_school || ""
-    const inquiryDateValue = fullInquiry.date || new Date().toISOString().split("T")[0]
-    
-    // Set inquiry date
-    setInquiryDate(inquiryDateValue)
     
     // Populate form with inquiry data
     setInquiryFormData({
@@ -430,105 +292,18 @@ export default function InquiriesPage() {
     
     // Validate required fields
     if (!inquiryFormData.firstName.trim() || !inquiryFormData.lastName.trim()) {
-      const errorMsg = "First name and last name are required."
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
+      setInquiryError("First name and last name are required.")
       return
     }
     
     if (!inquiryFormData.email.trim()) {
-      const errorMsg = "Email is required."
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
+      setInquiryError("Email is required.")
       return
     }
     
     if (!inquiryFormData.phone.trim()) {
-      const errorMsg = "Phone number is required."
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
+      setInquiryError("Phone number is required.")
       return
-    }
-
-    // Validate name format - only letters, spaces, and periods
-    const nameRegex = /^[a-zA-Z\s.]+$/
-    if (!nameRegex.test(inquiryFormData.firstName.trim())) {
-      const errorMsg = "First name can only contain letters, spaces, and periods."
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
-      setIsUpdating(false)
-      return
-    }
-    if (!nameRegex.test(inquiryFormData.lastName.trim())) {
-      const errorMsg = "Last name can only contain letters, spaces, and periods."
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
-      setIsUpdating(false)
-      return
-    }
-
-    // Validate email format - prevent invalid special characters
-    const emailRegex = /^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
-    if (!emailRegex.test(inquiryFormData.email.trim())) {
-      const errorMsg = "Please enter a valid email address."
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
-      setIsUpdating(false)
-      return
-    }
-    // Check for invalid patterns like -@gmail.com
-    if (inquiryFormData.email.includes('-@') || inquiryFormData.email.startsWith('-') || inquiryFormData.email.startsWith('@')) {
-      const errorMsg = "Email cannot start with special characters or contain invalid patterns."
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
-      setIsUpdating(false)
-      return
-    }
-
-    // Validate phone number - exactly 11 digits
-    const updatePhoneDigits = inquiryFormData.phone.replace(/\D/g, '')
-    if (updatePhoneDigits.length !== 11) {
-      const errorMsg = "Phone number must be exactly 11 digits."
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
-      setIsUpdating(false)
-      return
-    }
-
-    // Check for duplicate email or phone number (excluding current inquiry)
-    try {
-      const { data: existingInquiries, error: checkError } = await supabase
-        .from("inquiries")
-        .select("id, email, phone")
-        .or(`email.eq.${inquiryFormData.email.trim()},phone.eq.${updatePhoneDigits}`)
-        .neq("id", editingInquiryId)
-
-      if (checkError) {
-        console.error("Error checking for duplicates:", checkError)
-      } else if (existingInquiries && existingInquiries.length > 0) {
-        const duplicateEmail = existingInquiries.find(inq => inq.email?.toLowerCase() === inquiryFormData.email.trim().toLowerCase())
-        const duplicatePhone = existingInquiries.find(inq => {
-          const existingPhoneDigits = (inq.phone || '').replace(/\D/g, '')
-          return existingPhoneDigits === updatePhoneDigits
-        })
-
-        if (duplicateEmail) {
-          const errorMsg = "This email already exists."
-          setInquiryError(errorMsg)
-          toast.error(errorMsg)
-          setIsUpdating(false)
-          return
-        }
-        if (duplicatePhone) {
-          const errorMsg = "This number already exists."
-          setInquiryError(errorMsg)
-          toast.error(errorMsg)
-          setIsUpdating(false)
-          return
-        }
-      }
-    } catch (error) {
-      console.error("Error checking for duplicates:", error)
     }
     
     setIsUpdating(true)
@@ -548,17 +323,14 @@ export default function InquiriesPage() {
     
     const programDisplayNames = inquiryFormData.programs.map(p => programNames[p] || p)
     
-    // Normalize phone number to digits only (already validated above)
-    const updatePhoneDigitsNormalized = inquiryFormData.phone.replace(/\D/g, '')
-    
     const payload = {
       name: `${inquiryFormData.firstName} ${inquiryFormData.lastName}`.trim(),
-      email: inquiryFormData.email.trim().toLowerCase(),
-      phone: updatePhoneDigitsNormalized,
+      email: inquiryFormData.email,
+      phone: inquiryFormData.phone,
       program: programDisplayNames.join(", ") || "Not specified",
       student_type: inquiryFormData.studentType === "tertiary" ? "College" : "Senior High",
       status: existingInquiry.status || "For follow up", // Preserve existing status
-      date: inquiryDate || existingInquiry.date || new Date().toISOString().split("T")[0], // Use inquiry date or preserve existing date
+      date: existingInquiry.date || new Date().toISOString().split("T")[0], // Preserve existing date
       present_school: inquiryFormData.presentSchool || null,
       inquiry_type: inquiryFormData.inquiryType || null,
       how_did_you_find_out: inquiryFormData.howDidYouFindOut.length > 0 ? inquiryFormData.howDidYouFindOut : [],
@@ -592,16 +364,13 @@ export default function InquiriesPage() {
       console.error("Error details:", JSON.stringify(error, null, 2))
       
       // Check for RLS-related errors
-      let errorMsg = ""
       if (error.code === "42501" || error.message?.includes("permission denied") || error.message?.includes("row-level security")) {
-        errorMsg = `Permission denied: ${error.message || "Row Level Security (RLS) policy is blocking this update. Please check your Supabase RLS policies for the inquiries table."}`
+        setInquiryError(`Permission denied: ${error.message || "Row Level Security (RLS) policy is blocking this update. Please check your Supabase RLS policies for the inquiries table."}`)
       } else if (error.code === "23502") {
-        errorMsg = `Database constraint error: ${error.message || "A required field is missing."}`
-      } else {
-        errorMsg = `Error updating inquiry: ${error.message || JSON.stringify(error) || "Please try again."}`
+        setInquiryError(`Database constraint error: ${error.message || "A required field is missing."}`)
+    } else {
+        setInquiryError(`Error updating inquiry: ${error.message || JSON.stringify(error) || "Please try again."}`)
       }
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
       setIsUpdating(false)
     } else {
       console.log("Update successful, data:", data)
@@ -684,10 +453,7 @@ export default function InquiriesPage() {
     }
   }
 
-  const resetForm = () => {
-    setInquiryFormData(INITIAL_FORM_DATA)
-    setInquiryDate(new Date().toISOString().split("T")[0])
-  }
+  const resetForm = () => setInquiryFormData(INITIAL_FORM_DATA)
 
   const handleArrayChange = (field: "programs" | "howDidYouFindOut" | "referralSource", value: string, checked: boolean) => {
     setInquiryFormData(prev => ({
@@ -697,129 +463,26 @@ export default function InquiriesPage() {
   }
 
   const handleSubmitInquiry = async () => {
-    console.log("handleSubmitInquiry called", { isCreatingInquiry, inquiryFormData })
-    if (isCreatingInquiry) {
-      console.log("Already creating inquiry, returning early")
-      return
-    }
-    
-    // Clear any previous errors
-    setInquiryError("")
+    if (isCreatingInquiry) return
     
     // Validate required fields
     if (!inquiryFormData.firstName.trim() || !inquiryFormData.lastName.trim()) {
-      const errorMsg = "First name and last name are required."
-      console.log("Validation error:", errorMsg)
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
+      setInquiryError("First name and last name are required.")
       return
     }
     
     if (!inquiryFormData.email.trim()) {
-      const errorMsg = "Email is required."
-      console.log("Validation error:", errorMsg)
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
+      setInquiryError("Email is required.")
       return
     }
     
     if (!inquiryFormData.phone.trim()) {
-      const errorMsg = "Phone number is required."
-      console.log("Validation error:", errorMsg)
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
+      setInquiryError("Phone number is required.")
       return
     }
-
-    // Validate name format - only letters, spaces, and periods
-    const nameRegex = /^[a-zA-Z\s.]+$/
-    if (!nameRegex.test(inquiryFormData.firstName.trim())) {
-      const errorMsg = "First name can only contain letters, spaces, and periods."
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
-      return
-    }
-    if (!nameRegex.test(inquiryFormData.lastName.trim())) {
-      const errorMsg = "Last name can only contain letters, spaces, and periods."
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
-      return
-    }
-
-    // Validate email format - prevent invalid special characters
-    const emailRegex = /^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
-    if (!emailRegex.test(inquiryFormData.email.trim())) {
-      const errorMsg = "Please enter a valid email address."
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
-      return
-    }
-    // Check for invalid patterns like -@gmail.com
-    if (inquiryFormData.email.includes('-@') || inquiryFormData.email.startsWith('-') || inquiryFormData.email.startsWith('@')) {
-      const errorMsg = "Email cannot start with special characters or contain invalid patterns."
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
-      return
-    }
-
-    // Validate phone number - exactly 11 digits
-    const phoneDigits = inquiryFormData.phone.replace(/\D/g, '')
-    if (phoneDigits.length !== 11) {
-      const errorMsg = "Phone number must be exactly 11 digits."
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
-      return
-    }
-
+    
     setIsCreatingInquiry(true)
     setInquiryError("")
-
-    // Check for duplicate email or phone number
-    try {
-      const { data: existingInquiries, error: checkError } = await supabase
-        .from("inquiries")
-        .select("id, email, phone")
-        .or(`email.eq.${inquiryFormData.email.trim()},phone.eq.${phoneDigits}`)
-
-      if (checkError) {
-        console.error("Error checking for duplicates:", checkError)
-        const errorMsg = "Error checking for duplicates. Please try again."
-        setInquiryError(errorMsg)
-        toast.error(errorMsg)
-        setIsCreatingInquiry(false)
-        return
-      }
-      
-      if (existingInquiries && existingInquiries.length > 0) {
-        const duplicateEmail = existingInquiries.find(inq => inq.email?.toLowerCase() === inquiryFormData.email.trim().toLowerCase())
-        const duplicatePhone = existingInquiries.find(inq => {
-          const existingPhoneDigits = (inq.phone || '').replace(/\D/g, '')
-          return existingPhoneDigits === phoneDigits
-        })
-
-        if (duplicateEmail) {
-          const errorMsg = "This email already exists."
-          setInquiryError(errorMsg)
-          toast.error(errorMsg)
-          setIsCreatingInquiry(false)
-          return
-        }
-        if (duplicatePhone) {
-          const errorMsg = "This number already exists."
-          setInquiryError(errorMsg)
-          toast.error(errorMsg)
-          setIsCreatingInquiry(false)
-          return
-        }
-      }
-    } catch (error) {
-      console.error("Error checking for duplicates:", error)
-      const errorMsg = "Error checking for duplicates. Please try again."
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
-      setIsCreatingInquiry(false)
-      return
-    }
 
     // Verify Supabase client is initialized
     if (!supabase) {
@@ -829,30 +492,6 @@ export default function InquiriesPage() {
     }
 
     try {
-      // Get current admin's name
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
-      if (userError || !user) {
-        setInquiryError("You must be logged in to create inquiries. Please refresh the page and try again.")
-        setIsCreatingInquiry(false)
-        return
-      }
-
-      // Fetch admin's name from profile
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('first_name, last_name, name')
-        .eq('id', user.id)
-        .single()
-
-      let adminName = "Unknown Admin"
-      if (!profileError && profile) {
-        if (profile.name) {
-          adminName = profile.name
-        } else if (profile.first_name || profile.last_name) {
-          adminName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || "Unknown Admin"
-        }
-      }
-
       // Format program names for display
       const programNames: { [key: string]: string } = {
         "bsit": "BS Information Technology",
@@ -867,13 +506,10 @@ export default function InquiriesPage() {
       
       const programDisplayNames = inquiryFormData.programs.map(p => programNames[p] || p)
       
-      // Normalize phone number to digits only
-      const phoneDigits = inquiryFormData.phone.replace(/\D/g, '')
-      
       const newInquiry = {
         name: `${inquiryFormData.firstName} ${inquiryFormData.lastName}`.trim(),
-        email: inquiryFormData.email.trim().toLowerCase(),
-        phone: phoneDigits,
+        email: inquiryFormData.email,
+        phone: inquiryFormData.phone,
         program: programDisplayNames.join(", ") || "Not specified",
         student_type: inquiryFormData.studentType === "tertiary" ? "College" : "Senior High",
         present_school: inquiryFormData.presentSchool || null,
@@ -883,8 +519,7 @@ export default function InquiriesPage() {
         events_description: inquiryFormData.eventsDescription || null,
         others_specify: inquiryFormData.othersSpecify || null,
         status: "For follow up",
-        date: inquiryDate || new Date().toISOString().split("T")[0], // Use inquiry date or current date
-        admin_name: adminName, // Store admin name permanently
+        date: new Date().toISOString().split("T")[0], // Format as YYYY-MM-DD
       }
 
       console.log("Creating inquiry with payload:", newInquiry)
@@ -910,9 +545,7 @@ export default function InquiriesPage() {
     } catch (error: any) {
       console.error("Error creating inquiry:", error)
       const errorMessage = error?.message || error?.details || error?.hint || JSON.stringify(error) || "Unknown error occurred"
-      const errorMsg = `Error creating inquiry: ${errorMessage}`
-      setInquiryError(errorMsg)
-      toast.error(errorMsg)
+      setInquiryError(`Error creating inquiry: ${errorMessage}`)
     } finally {
       setIsCreatingInquiry(false)
     }
@@ -949,8 +582,6 @@ export default function InquiriesPage() {
     const programs = mapProgramStringToCodes(inquiry.program)
     const normalizedPhone = inquiry.phone.replace(/[^\d]/g, "")
 
-    // For enrollment, only use the first program since radio buttons allow only one selection
-    // Clear the fallback program field so only the selected radio button program is saved
     setEnrollmentFormData({
       ...template,
       firstName,
@@ -959,8 +590,8 @@ export default function InquiriesPage() {
       email: inquiry.email,
       mobileNumber: normalizedPhone,
       studentType: inquiry.studentType === "College" ? "college" : "senior-high",
-      programs: programs.length > 0 ? [programs[0]] : [], // Only take the first program for radio button
-      program: "", // Clear fallback so only selected radio button program is saved
+      programs,
+      program: programs.length === 0 ? inquiry.program : "",
     })
   }
 
@@ -992,27 +623,6 @@ export default function InquiriesPage() {
     }
 
     setIsSavingEnrollment(true)
-    
-    // Fetch admin's name from profile
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    let adminName = "Unknown Admin"
-    
-    if (!authError && user) {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('first_name, last_name, name')
-        .eq('id', user.id)
-        .single()
-
-      if (!profileError && profile) {
-        if (profile.name) {
-          adminName = profile.name
-        } else if (profile.first_name || profile.last_name) {
-          adminName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || "Unknown Admin"
-        }
-      }
-    }
-    
     const programNames = mapProgramCodesToLabel(enrollmentFormData.programs, enrollmentFormData.program)
     const studentTypeLabel =
       enrollmentFormData.studentType === "college"
@@ -1021,7 +631,7 @@ export default function InquiriesPage() {
           ? "Senior High"
           : ""
 
-    const payload: any = {
+    const payload = {
       name: `${enrollmentFormData.firstName} ${
         enrollmentFormData.middleName ? enrollmentFormData.middleName + " " : ""
       }${enrollmentFormData.lastName}`.trim(),
@@ -1041,35 +651,9 @@ export default function InquiriesPage() {
       college_student_type: enrollmentFormData.studentType === "college" ? enrollmentFormData.collegeStudentType : null,
       student_number:
         enrollmentFormData.collegeStudentType === "sti-transferee" ? enrollmentFormData.studentNumber : null,
-      admin_name: adminName, // Store admin name permanently
-    }
-
-    // Add inquiry_id - inquiry IDs are numbers, not UUIDs
-    if (pendingEnrollmentInquiry.id) {
-      payload.inquiry_id = pendingEnrollmentInquiry.id
     }
 
     const { error } = await supabase.from("enrollments").insert(payload)
-
-    if (error) {
-      console.error("Error creating enrollment:", error)
-      // If error is about inquiry_id column not existing, try again without it
-      if (error.message?.includes('inquiry_id') || error.message?.includes('column') || error.code === '42703') {
-        const payloadWithoutInquiryId = { ...payload }
-        delete payloadWithoutInquiryId.inquiry_id
-        const { error: retryError } = await supabase.from("enrollments").insert(payloadWithoutInquiryId)
-        if (retryError) {
-          console.error("Error creating enrollment (retry):", retryError)
-          alert(`Unable to create enrollment: ${retryError.message}`)
-          setIsSavingEnrollment(false)
-          return
-        }
-      } else {
-        alert(`Unable to create enrollment: ${error.message}`)
-        setIsSavingEnrollment(false)
-        return
-      }
-    }
 
     if (!error) {
       await supabase.from("inquiries").update({ status: pendingStatus }).eq("id", pendingEnrollmentInquiry.id)
@@ -1130,7 +714,7 @@ export default function InquiriesPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900">
         {/* Sidebar Navigation - Fixed */}
-        <AdminSidebar onLogout={handleLogout} userPermissions={userPermissions} />
+        <AdminSidebar onLogout={handleLogout} />
 
         {/* Main Content - Account for fixed sidebar */}
         <main className="ml-64 p-6">
@@ -1141,77 +725,12 @@ export default function InquiriesPage() {
             <h1 className="text-3xl font-serif font-bold text-slate-700 dark:text-slate-200 mb-2">Inquiries Management</h1>
             <p className="text-slate-600 dark:text-slate-400">Track and manage all program inquiries from prospective students</p>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="flex flex-col">
-                  <Label htmlFor="start-date" className="text-sm font-medium text-foreground mb-1">Start Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        id="start-date"
-                        variant="outline"
-                        className="w-[140px] justify-start text-left font-normal border border-border focus-visible:ring-ring focus-visible:border-ring h-9 px-3"
-                      >
-                        {startDate ? format(startDate, "MM/dd/yyyy") : "Select date"}
-                        <CalendarIcon className="ml-auto h-4 w-4 text-muted-foreground" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="end">
-                      <Calendar
-                        mode="single"
-                        selected={startDate}
-                        onSelect={setStartDate}
-                        captionLayout="dropdown"
-                        fromYear={new Date().getFullYear() - 10}
-                        toYear={new Date().getFullYear() + 10}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div className="flex flex-col">
-                  <Label htmlFor="end-date" className="text-sm font-medium text-foreground mb-1">End Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        id="end-date"
-                        variant="outline"
-                        className="w-[140px] justify-start text-left font-normal border border-border focus-visible:ring-ring focus-visible:border-ring h-9 px-3"
-                      >
-                        {endDate ? format(endDate, "MM/dd/yyyy") : "Select date"}
-                        <CalendarIcon className="ml-auto h-4 w-4 text-muted-foreground" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="end">
-                      <Calendar
-                        mode="single"
-                        selected={endDate}
-                        onSelect={setEndDate}
-                        captionLayout="dropdown"
-                        fromYear={new Date().getFullYear() - 10}
-                        toYear={new Date().getFullYear() + 10}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const currentYear = new Date().getFullYear()
-                    setStartDate(new Date(currentYear - 1, 0, 1)) // January 1 of last year
-                    setEndDate(new Date(currentYear, 11, 31)) // December 31 of this year
-                    fetchInquiries()
-                  }}
-                  disabled={isLoadingInquiries}
-                  className="h-9 w-9 p-0"
-                  title={isLoadingInquiries ? 'Refreshing...' : 'Refresh Data'}
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                </Button>
-              </div>
+              <DateRangePicker
+                startDate={startDate}
+                endDate={endDate}
+                onStartDateChange={setStartDate}
+                onEndDateChange={setEndDate}
+              />
             </div>
           </div>
 
@@ -1379,7 +898,7 @@ export default function InquiriesPage() {
                               key={inquiry.id}
                               className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                             >
-                              <TableCell className="font-medium py-4">{inquiry.adminName || "Unknown Admin"}</TableCell>
+                              <TableCell className="font-medium py-4">Admin Name</TableCell>
                               <TableCell className="font-medium py-4">
                                 <div className="flex items-center gap-3">
                                   <div>
@@ -1401,32 +920,9 @@ export default function InquiriesPage() {
                                 </div>
                               </TableCell>
                               <TableCell className="py-4">
-                                {(() => {
-                                  const programs = (inquiry.program || "Not specified").split(/, |,/).filter(p => p.trim())
-                                  const firstTwo = programs.slice(0, 2)
-                                  const remaining = programs.slice(2)
-                                  
-                                  return (
-                                    <div className="space-y-1">
-                                      <div className="flex flex-wrap gap-1">
-                                        {firstTwo.map((program, index) => (
-                                          <Badge key={index} variant="secondary" className="text-xs !border-0 focus-visible:!border-0">
-                                            {program.trim()}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                      {remaining.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 pt-1 border-t border-border/50">
-                                          {remaining.map((program, index) => (
-                                            <Badge key={index} variant="secondary" className="text-xs !border-0 focus-visible:!border-0">
-                                              {program.trim()}
-                                            </Badge>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )
-                                })()}
+                                <Badge variant="secondary" className="text-xs">
+                                  {inquiry.program}
+                                </Badge>
                               </TableCell>
                               <TableCell className="py-4">
                                 <div className="flex items-center gap-3">
@@ -1559,7 +1055,7 @@ export default function InquiriesPage() {
                               key={inquiry.id}
                               className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                             >
-                              <TableCell className="font-medium py-4">{inquiry.adminName || "Unknown Admin"}</TableCell>
+                              <TableCell className="font-medium py-4">Admin Name</TableCell>
                               <TableCell className="font-medium py-4">
                                 <div className="flex items-center gap-3">
                                   <div>
@@ -1581,32 +1077,9 @@ export default function InquiriesPage() {
                                 </div>
                               </TableCell>
                               <TableCell className="py-4">
-                                {(() => {
-                                  const programs = (inquiry.program || "Not specified").split(/, |,/).filter(p => p.trim())
-                                  const firstTwo = programs.slice(0, 2)
-                                  const remaining = programs.slice(2)
-                                  
-                                  return (
-                                    <div className="space-y-1">
-                                      <div className="flex flex-wrap gap-1">
-                                        {firstTwo.map((program, index) => (
-                                          <Badge key={index} variant="secondary" className="text-xs !border-0 focus-visible:!border-0">
-                                            {program.trim()}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                      {remaining.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 pt-1 border-t border-border/50">
-                                          {remaining.map((program, index) => (
-                                            <Badge key={index} variant="secondary" className="text-xs !border-0 focus-visible:!border-0">
-                                              {program.trim()}
-                                            </Badge>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )
-                                })()}
+                                <Badge variant="secondary" className="text-xs">
+                                  {inquiry.program}
+                                </Badge>
                               </TableCell>
                               <TableCell className="py-4">
                                 <div className="flex items-center gap-3">
@@ -1739,7 +1212,7 @@ export default function InquiriesPage() {
                               key={inquiry.id}
                               className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                             >
-                              <TableCell className="font-medium py-4">{inquiry.adminName || "Unknown Admin"}</TableCell>
+                              <TableCell className="font-medium py-4">Admin Name</TableCell>
                               <TableCell className="font-medium py-4">
                                 <div className="flex items-center gap-3">
                                   <div>
@@ -1761,32 +1234,9 @@ export default function InquiriesPage() {
                                 </div>
                               </TableCell>
                               <TableCell className="py-4">
-                                {(() => {
-                                  const programs = (inquiry.program || "Not specified").split(/, |,/).filter(p => p.trim())
-                                  const firstTwo = programs.slice(0, 2)
-                                  const remaining = programs.slice(2)
-                                  
-                                  return (
-                                    <div className="space-y-1">
-                                      <div className="flex flex-wrap gap-1">
-                                        {firstTwo.map((program, index) => (
-                                          <Badge key={index} variant="secondary" className="text-xs !border-0 focus-visible:!border-0">
-                                            {program.trim()}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                      {remaining.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 pt-1 border-t border-border/50">
-                                          {remaining.map((program, index) => (
-                                            <Badge key={index} variant="secondary" className="text-xs !border-0 focus-visible:!border-0">
-                                              {program.trim()}
-                                            </Badge>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )
-                                })()}
+                                <Badge variant="secondary" className="text-xs">
+                                  {inquiry.program}
+                                </Badge>
                               </TableCell>
                               <TableCell className="py-4">
                                 <div className="flex items-center gap-3">
@@ -1919,7 +1369,7 @@ export default function InquiriesPage() {
                               key={inquiry.id}
                               className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                             >
-                              <TableCell className="font-medium py-4">{inquiry.adminName || "Unknown Admin"}</TableCell>
+                              <TableCell className="font-medium py-4">Admin Name</TableCell>
                               <TableCell className="font-medium py-4">
                                 <div className="flex items-center gap-3">
                                   <div>
@@ -1941,32 +1391,9 @@ export default function InquiriesPage() {
                                 </div>
                               </TableCell>
                               <TableCell className="py-4">
-                                {(() => {
-                                  const programs = (inquiry.program || "Not specified").split(/, |,/).filter(p => p.trim())
-                                  const firstTwo = programs.slice(0, 2)
-                                  const remaining = programs.slice(2)
-                                  
-                                  return (
-                                    <div className="space-y-1">
-                                      <div className="flex flex-wrap gap-1">
-                                        {firstTwo.map((program, index) => (
-                                          <Badge key={index} variant="secondary" className="text-xs !border-0 focus-visible:!border-0">
-                                            {program.trim()}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                      {remaining.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 pt-1 border-t border-border/50">
-                                          {remaining.map((program, index) => (
-                                            <Badge key={index} variant="secondary" className="text-xs !border-0 focus-visible:!border-0">
-                                              {program.trim()}
-                                            </Badge>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )
-                                })()}
+                                <Badge variant="secondary" className="text-xs">
+                                  {inquiry.program}
+                                </Badge>
                               </TableCell>
                               <TableCell className="py-4">
                                 <div className="flex items-center gap-3">
@@ -2077,9 +1504,9 @@ export default function InquiriesPage() {
             </DialogHeader>
             
             {inquiryError && (
-              <Alert variant="destructive" className="mt-4">
+              <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="font-medium">{inquiryError}</AlertDescription>
+                <AlertDescription>{inquiryError}</AlertDescription>
               </Alert>
             )}
             
@@ -2157,12 +1584,8 @@ export default function InquiriesPage() {
                     <Input 
                       id="inquiry-firstName" 
                       placeholder="Enter your first name" 
-                      value={inquiryFormData.firstName ?? ""}
-                      onChange={(e) => {
-                        // Only allow letters, spaces, and periods
-                        const value = e.target.value.replace(/[^a-zA-Z\s.]/g, '')
-                        setInquiryFormData(prev => ({ ...prev, firstName: value }))
-                      }}
+                      value={inquiryFormData.firstName}
+                      onChange={(e) => setInquiryFormData(prev => ({ ...prev, firstName: e.target.value }))}
                       className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
                     />
                   </div>
@@ -2171,12 +1594,8 @@ export default function InquiriesPage() {
                     <Input 
                       id="inquiry-lastName" 
                       placeholder="Enter your last name" 
-                      value={inquiryFormData.lastName ?? ""}
-                      onChange={(e) => {
-                        // Only allow letters, spaces, and periods
-                        const value = e.target.value.replace(/[^a-zA-Z\s.]/g, '')
-                        setInquiryFormData(prev => ({ ...prev, lastName: value }))
-                      }}
+                      value={inquiryFormData.lastName}
+                      onChange={(e) => setInquiryFormData(prev => ({ ...prev, lastName: e.target.value }))}
                       className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
                     />
                   </div>
@@ -2184,65 +1603,11 @@ export default function InquiriesPage() {
                 
                 <div className="space-y-2">
                   <Label htmlFor="inquiry-presentSchool">Present School</Label>
-                  <Popover open={schoolPopoverOpen} onOpenChange={setSchoolPopoverOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={schoolPopoverOpen}
-                        className={cn(
-                          "w-full justify-between border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500",
-                          !inquiryFormData.presentSchool && "text-muted-foreground"
-                        )}
-                      >
-                        {inquiryFormData.presentSchool || "Select school"}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent 
-                      className="p-0" 
-                      align="start"
-                      style={{ width: 'var(--radix-popover-trigger-width)' }}
-                    >
-                      <Command>
-                        <CommandInput placeholder="Search schools..." />
-                        <CommandList>
-                          <CommandEmpty>No school found.</CommandEmpty>
-                          <CommandGroup>
-                            {schools.map((school) => (
-                              <CommandItem
-                                key={school.id}
-                                value={school.name}
-                                onSelect={() => {
-                                  setInquiryFormData(prev => ({ ...prev, presentSchool: school.name }))
-                                  setSchoolPopoverOpen(false)
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    inquiryFormData.presentSchool === school.name ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {school.name}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="inquiry-date">Inquiry Date</Label>
                   <Input 
-                    id="inquiry-date" 
-                    type="date"
-                    value={inquiryDate ?? ""}
-                    onChange={(e) => {
-                      setInquiryDate(e.target.value)
-                    }}
+                    id="inquiry-presentSchool" 
+                    placeholder="Enter your current school" 
+                    value={inquiryFormData.presentSchool}
+                    onChange={(e) => setInquiryFormData(prev => ({ ...prev, presentSchool: e.target.value }))}
                     className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
                   />
                 </div>
@@ -2253,36 +1618,25 @@ export default function InquiriesPage() {
                     id="inquiry-email" 
                     type="email" 
                     placeholder="Enter your email address" 
-                    value={inquiryFormData.email ?? ""}
-                    onChange={(e) => {
-                      let value = e.target.value
-                      // Prevent special characters that shouldn't be in email (like -@gmail.com pattern)
-                      // Allow only valid email characters: letters, numbers, dots, underscores, plus, hyphens, and @
-                      // But prevent -@ pattern and starting with special characters
-                      if (value.includes('-@') || value.startsWith('-') || value.startsWith('@')) {
-                        return // Don't update if invalid pattern
-                      }
-                      // Remove invalid characters but keep valid email characters
-                      value = value.replace(/[^a-zA-Z0-9._+-@]/g, '')
-                      setInquiryFormData(prev => ({ ...prev, email: value }))
-                    }}
+                    value={inquiryFormData.email}
+                    onChange={(e) => setInquiryFormData(prev => ({ ...prev, email: e.target.value }))}
                     className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="inquiry-phone">Phone Number (11 digits)</Label>
+                  <Label htmlFor="inquiry-phone">Phone Number</Label>
                   <Input 
                     id="inquiry-phone" 
                     type="tel" 
-                    placeholder="Enter 11-digit phone number" 
-                    value={inquiryFormData.phone ?? ""}
+                    placeholder="Enter your phone number" 
+                    value={inquiryFormData.phone}
                     onChange={(e) => {
-                      // Only allow digits, limit to 11 characters
-                      const digits = e.target.value.replace(/\D/g, '').slice(0, 11)
-                      setInquiryFormData(prev => ({ ...prev, phone: digits }))
+                      const value = e.target.value;
+                      if (/^\d*$/.test(value)) {
+                        setInquiryFormData(prev => ({ ...prev, phone: value }));
+                      }
                     }}
-                    maxLength={11}
                     className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
                   />
                 </div>
@@ -2459,6 +1813,16 @@ export default function InquiriesPage() {
                       />
                       <Label htmlFor="inquiry-magazine" className="text-sm">MAGAZINE/FLYERS</Label>
                     </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="inquiry-career-orientation" 
+                        checked={inquiryFormData.howDidYouFindOut.includes('career-orientation')}
+                        onCheckedChange={(checked) => handleArrayChange('howDidYouFindOut', 'career-orientation', checked as boolean)}
+                        className="border border-gray-400"
+                      />
+                      
+                    </div>
                   </div>
 
                   {/* ONLINE Section */}
@@ -2522,75 +1886,12 @@ export default function InquiriesPage() {
                     
                     {inquiryFormData.howDidYouFindOut.includes('events') && (
                       <div className="ml-6">
-                        <Popover open={eventsPopoverOpen} onOpenChange={setEventsPopoverOpen}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              aria-expanded={eventsPopoverOpen}
-                              className={cn(
-                                "w-full justify-between border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500",
-                                !inquiryFormData.eventsDescription && "text-muted-foreground"
-                              )}
-                              disabled={loadingActivities}
-                            >
-                              {loadingActivities
-                                ? "Loading activities..."
-                                : inquiryFormData.eventsDescription || "Select marketing activity"}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent 
-                            className="p-0" 
-                            align="start"
-                            style={{ width: 'var(--radix-popover-trigger-width)' }}
-                          >
-                            <Command>
-                              <CommandInput placeholder="Search activities..." />
-                              <CommandList>
-                                <CommandEmpty>
-                                  {!inquiryFormData.presentSchool 
-                                    ? "Please select a present school first"
-                                    : !inquiryDate
-                                    ? "Please select an inquiry date first"
-                                    : "No activity found for this school and date"}
-                                </CommandEmpty>
-                                <CommandGroup>
-                                  {marketingActivities.map((activity) => {
-                                    // Format date as MM/DD/YYYY (e.g., 12/8/2025)
-                                    let activityDate = ''
-                                    if (activity.date) {
-                                      const date = new Date(activity.date)
-                                      const month = date.getMonth() + 1
-                                      const day = date.getDate()
-                                      const year = date.getFullYear()
-                                      activityDate = `${month}/${day}/${year}`
-                                    }
-                                    const displayText = activityDate ? `${activity.title} - ${activityDate}` : activity.title
-                                    return (
-                                      <CommandItem
-                                        key={activity.id}
-                                        value={activity.title}
-                                        onSelect={() => {
-                                          setInquiryFormData(prev => ({ ...prev, eventsDescription: displayText }))
-                                          setEventsPopoverOpen(false)
-                                        }}
-                                      >
-                                        <Check
-                                          className={cn(
-                                            "mr-2 h-4 w-4",
-                                            inquiryFormData.eventsDescription === displayText ? "opacity-100" : "opacity-0"
-                                          )}
-                                        />
-                                        {displayText}
-                                      </CommandItem>
-                                    )
-                                  })}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
+                        <Input 
+                          placeholder="Please describe the event" 
+                          value={inquiryFormData.eventsDescription}
+                          onChange={(e) => setInquiryFormData(prev => ({ ...prev, eventsDescription: e.target.value }))}
+                          className="border border-gray-400"
+                        />
                       </div>
                     )}
                   </div>
@@ -2675,7 +1976,7 @@ export default function InquiriesPage() {
                           <div className="mt-2">
                             <Input 
                               placeholder="Please specify" 
-                              value={inquiryFormData.othersSpecify ?? ""}
+                              value={inquiryFormData.othersSpecify}
                               onChange={(e) => setInquiryFormData(prev => ({ ...prev, othersSpecify: e.target.value }))}
                               className="border border-gray-400"
                             />
@@ -2701,16 +2002,7 @@ export default function InquiriesPage() {
                 Cancel
               </Button>
               <Button 
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  if (editingInquiryId) {
-                    handleUpdateInquiry()
-                  } else {
-                    handleSubmitInquiry()
-                  }
-                }}
+                onClick={editingInquiryId ? handleUpdateInquiry : handleSubmitInquiry}
                 className="bg-primary hover:bg-primary/90"
                 disabled={isCreatingInquiry || isUpdating}
               >
@@ -2780,13 +2072,6 @@ export default function InquiriesPage() {
                     <Label className="text-sm font-medium">Phone Number</Label>
                     <p className="text-sm">{viewingInquiry.phone}</p>
                   </div>
-
-                  {viewingInquiryFull?.present_school && (
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Present School</Label>
-                      <p className="text-sm">{viewingInquiryFull.present_school}</p>
-                    </div>
-                  )}
                 </div>
 
                 <div className="space-y-4">
@@ -2890,7 +2175,6 @@ export default function InquiriesPage() {
             <EnrollmentForm
               studentFormData={enrollmentFormData}
               setStudentFormData={setEnrollmentFormData}
-              isEnrollment={true}
             />
 
             <div className="flex justify-end gap-2">
@@ -2921,7 +2205,7 @@ export default function InquiriesPage() {
 
         {/* Fullscreen Table Dialog */}
         <Dialog open={isTableFullscreen} onOpenChange={setIsTableFullscreen}>
-          <DialogContent showCloseButton={false} className="!max-w-none !w-screen !h-screen !max-h-screen !top-0 !left-0 !translate-x-0 !translate-y-0 !rounded-none p-6 flex flex-col">
+          <DialogContent className="!max-w-none !w-screen !h-screen !max-h-screen !top-0 !left-0 !translate-x-0 !translate-y-0 !rounded-none p-6 flex flex-col">
             <DialogHeader>
               <div className="flex items-center justify-between">
                 <DialogTitle>Inquiries Table</DialogTitle>
@@ -3044,7 +2328,7 @@ export default function InquiriesPage() {
                               key={inquiry.id}
                               className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                             >
-                              <TableCell className="font-medium py-4">{inquiry.adminName || "Unknown Admin"}</TableCell>
+                              <TableCell className="font-medium py-4">Admin Name</TableCell>
                               <TableCell className="font-medium py-4">
                                 <div className="flex items-center gap-3">
                                   <div>
@@ -3066,32 +2350,9 @@ export default function InquiriesPage() {
                                 </div>
                               </TableCell>
                               <TableCell className="py-4">
-                                {(() => {
-                                  const programs = (inquiry.program || "Not specified").split(/, |,/).filter(p => p.trim())
-                                  const firstTwo = programs.slice(0, 2)
-                                  const remaining = programs.slice(2)
-                                  
-                                  return (
-                                    <div className="space-y-1">
-                                      <div className="flex flex-wrap gap-1">
-                                        {firstTwo.map((program, index) => (
-                                          <Badge key={index} variant="secondary" className="text-xs !border-0 focus-visible:!border-0">
-                                            {program.trim()}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                      {remaining.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 pt-1 border-t border-border/50">
-                                          {remaining.map((program, index) => (
-                                            <Badge key={index} variant="secondary" className="text-xs !border-0 focus-visible:!border-0">
-                                              {program.trim()}
-                                            </Badge>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )
-                                })()}
+                                <Badge variant="secondary" className="text-xs">
+                                  {inquiry.program}
+                                </Badge>
                               </TableCell>
                               <TableCell className="py-4">
                                 <div className="flex items-center gap-3">

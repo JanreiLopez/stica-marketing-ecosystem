@@ -17,6 +17,8 @@ import { X, Plus, Eye, Edit, Trash2, TrendingUp, BarChart3, Target, Users, Calen
 import { AdminSidebar } from "@/components/admin-sidebar"
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns"
 import { supabase } from "@/lib/supabase-client"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell, Tooltip } from "recharts"
 
 export default function MarketingPage() {
   const router = useRouter()
@@ -45,6 +47,12 @@ export default function MarketingPage() {
     budget: string
     date: string
   }>>([])
+  const [userPermissions, setUserPermissions] = useState<string[]>([]); // New state for user permissions
+  
+  // Date range state - Dynamic dates: start date is January 1 of last year, end date is December 31 of this year (for year-over-year comparison)
+  const currentYear = new Date().getFullYear()
+  const [startDate, setStartDate] = useState<Date | undefined>(new Date(currentYear - 1, 0, 1)) // January 1 of last year
+  const [endDate, setEndDate] = useState<Date | undefined>(new Date(currentYear, 11, 31)) // December 31 of this year
   
   // Time period filter state - added "all" option
   const [timePeriod, setTimePeriod] = useState<"all" | "week" | "month" | "nextMonth">("all")
@@ -52,6 +60,8 @@ export default function MarketingPage() {
   // Feeder schools data - fetched from database
   const [feederSchools, setFeederSchools] = useState<Array<{ id: number; name: string }>>([])
   const [schoolsLoading, setSchoolsLoading] = useState(true)
+  const [totalEnrolledStudents, setTotalEnrolledStudents] = useState<number>(0)
+  const [isConversionRateDialogOpen, setIsConversionRateDialogOpen] = useState(false)
   
   const handleLogout = () => {
     router.push("/login")
@@ -332,6 +342,24 @@ export default function MarketingPage() {
     }
   }, [])
 
+  const fetchTotalEnrolledStudents = useCallback(async () => {
+    try {
+      const { count, error } = await supabase
+        .from('enrollments')
+        .select('*', { count: 'exact', head: true })
+      
+      if (error) {
+        console.error('Error fetching enrolled students:', error)
+        setTotalEnrolledStudents(0)
+      } else {
+        setTotalEnrolledStudents(count || 0)
+      }
+    } catch (err) {
+      console.error('Error fetching enrolled students:', err)
+      setTotalEnrolledStudents(0)
+    }
+  }, [])
+
   const fetchFeederSchools = useCallback(async () => {
     try {
       // Check if Supabase is properly configured
@@ -386,10 +414,42 @@ export default function MarketingPage() {
 
   // Load marketing activities on component mount
   useEffect(() => {
+    const fetchUserPermissions = async () => {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        console.error('Error fetching user:', authError);
+        router.push('/login'); // Redirect to login if not authenticated
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('permissions')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        setUserPermissions([]);
+      } else {
+        try {
+          const permissions = typeof profile.permissions === 'string'
+            ? JSON.parse(profile.permissions)
+            : profile.permissions;
+          setUserPermissions(permissions || []);
+        } catch (parseError) {
+          console.error('Error parsing permissions:', parseError);
+          setUserPermissions([]);
+        }
+      }
+    };
+
+    fetchUserPermissions();
     console.log('Marketing activities page mounted, fetching initial data...')
     fetchMarketingActivities()
     fetchEventTitles()
     fetchFeederSchools()
+    fetchTotalEnrolledStudents()
     
     // Listen for school updates
     const handleSchoolUpdate = (event: CustomEvent) => {
@@ -403,7 +463,7 @@ export default function MarketingPage() {
       console.log('Marketing activities page unmounting, removing event listener...')
       window.removeEventListener('schoolUpdated', handleSchoolUpdate as EventListener)
     }
-  }, [fetchMarketingActivities, fetchEventTitles, fetchFeederSchools])
+  }, [router, fetchMarketingActivities, fetchEventTitles, fetchFeederSchools, fetchTotalEnrolledStudents]) // Added router to dependency array
 
   // Helper function to filter activities by time period
   const filterActivitiesByTimePeriod = (activities: typeof marketingActivities) => {
@@ -458,99 +518,52 @@ export default function MarketingPage() {
       return sum + budget
     }, 0)
     
-    // Calculate ROI: (Leads Generated * Average Value per Lead - Total Budget) / Total Budget * 100
-    // For simplicity, we'll assume an average value per lead of ₱5,000
-    const averageValuePerLead = 5000
-    const totalRevenue = totalLeads * averageValuePerLead
-    const roi = totalBudget > 0 ? ((totalRevenue - totalBudget) / totalBudget) * 100 : 0
+    // Calculate Campaign ROI: Total Leads / Total Graduating Students
+    // This shows how many leads were generated per graduating student
+    const roi = totalEnrolledStudents > 0 ? totalLeads / totalEnrolledStudents : 0
+    
+    // Calculate Conversion Rate: (Total Graduating Students / Total Leads Generated) * 100
+    // This shows what percentage of leads converted to graduating students
+    const conversionRate = totalLeads > 0 ? (totalEnrolledStudents / totalLeads) * 100 : 0
     
     return {
       totalLeads,
       totalBudget,
       activityCount: filteredActivities.length,
-      roi: Math.round(roi)
+      roi: Math.round(roi * 100) / 100, // Round to 2 decimal places (leads per student)
+      conversionRate: Math.round(conversionRate * 100) / 100 // Round to 2 decimal places (percentage)
     }
   }
   
   const stats = calculateStats()
 
-  // Calculate active campaigns from marketing activities
-  const calculateActiveCampaigns = () => {
-    // Group activities by title and aggregate data
-    const campaignMap = new Map()
-
+  // Calculate conversion rate per event for the dialog
+  const calculateEventConversionRates = () => {
+    // Group activities by event title
+    const eventMap = new Map<string, { leads: number; title: string }>()
+    
     filteredActivities.forEach(activity => {
-      const key = activity.title
-      if (!campaignMap.has(key)) {
-        campaignMap.set(key, {
-          name: key,
-          status: "Active", // All activities in current period are considered active
-          leads: 0,
-          budget: 0,
-          activities: []
-        })
+      const title = activity.title
+      if (!eventMap.has(title)) {
+        eventMap.set(title, { leads: 0, title })
       }
-
-      const campaign = campaignMap.get(key)
-      campaign.leads += activity.leadsGenerated
-
-      // Parse budget and add to total
-      const budgetValue = parseFloat(activity.budget.replace(/[^0-9.-]+/g, "")) || 0
-      campaign.budget += budgetValue
-      campaign.activities.push(activity)
+      const event = eventMap.get(title)!
+      event.leads += activity.leadsGenerated
     })
-
-    // Convert to array and calculate conversion rates (mock data for now)
-    return Array.from(campaignMap.values())
-      .sort((a, b) => b.leads - a.leads)
-      .slice(0, 4) // Show top 4 campaigns
-      .map(campaign => ({
-        ...campaign,
-        budget: `₱${campaign.budget.toLocaleString()}`,
-        conversion: Math.floor(60 + Math.random() * 20) // Mock conversion rate 60-80%
+    
+    // Calculate conversion rate for each event
+    // Conversion Rate = (Total Enrolled Students / Total Leads for Event) * 100
+    return Array.from(eventMap.values())
+      .map(event => ({
+        event: event.title,
+        leads: event.leads,
+        conversionRate: event.leads > 0 ? (totalEnrolledStudents / event.leads) * 100 : 0
       }))
+      .sort((a, b) => b.conversionRate - a.conversionRate)
   }
 
-  // Calculate channel performance from marketing activities
-  const calculateChannelPerformance = () => {
-    // Group activities by school (treating schools as channels for now)
-    const channelMap = new Map()
+  const eventConversionRates = calculateEventConversionRates()
 
-    filteredActivities.forEach(activity => {
-      // Use the activity title as the channel if no school is specified
-      const channel = activity.school || activity.title || "Unspecified"
-      if (!channelMap.has(channel)) {
-        channelMap.set(channel, {
-          channel,
-          leads: 0,
-          cost: 0,
-          activities: []
-        })
-      }
-
-      const channelData = channelMap.get(channel)
-      channelData.leads += activity.leadsGenerated
-
-      // Calculate cost per activity
-      const budgetValue = parseFloat(activity.budget.replace(/[^0-9.-]+/g, "")) || 0
-      channelData.cost += budgetValue
-      channelData.activities.push(activity)
-    })
-
-    // Calculate total leads for percentage calculation
-    const totalLeads = Array.from(channelMap.values()).reduce((sum, channel) => sum + channel.leads, 0)
-
-    // Convert to array with percentages
-    return Array.from(channelMap.values())
-      .sort((a, b) => b.leads - a.leads)
-      .map(channel => ({
-        channel: channel.channel,
-        leads: channel.leads,
-        percentage: totalLeads > 0 ? Math.round((channel.leads / totalLeads) * 100) : 0,
-        cost: channel.cost > 0 ? `₱${channel.cost.toLocaleString()}` : "₱0"
-      }))
-      .slice(0, 5) // Show top 5 channels
-  }
 
   // Get period label for statistics
   const getPeriodLabel = () => {
@@ -564,20 +577,93 @@ export default function MarketingPage() {
   }
   
   const periodLabel = getPeriodLabel()
-  const activeCampaigns = calculateActiveCampaigns()
-  const channelPerformance = calculateChannelPerformance()
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900">
         {/* Sidebar Navigation - Fixed */}
-        <AdminSidebar onLogout={handleLogout} />
+        <AdminSidebar onLogout={handleLogout} userPermissions={userPermissions} />
 
         {/* Main Content - Account for fixed sidebar */}
         <main className="ml-64 p-6">
 
           <div className="mb-6">
-            <h1 className="text-3xl font-serif font-bold text-slate-700 dark:text-slate-200 mb-2">Marketing Activities</h1>
-            <p className="text-slate-600 dark:text-slate-400">Track marketing campaigns, lead generation, and conversion metrics</p>
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h1 className="text-3xl font-serif font-bold text-slate-700 dark:text-slate-200 mb-2">Marketing Activities</h1>
+                <p className="text-slate-600 dark:text-slate-400">Track marketing campaigns, lead generation, and conversion metrics</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col">
+                  <Label htmlFor="start-date" className="text-sm font-medium text-foreground mb-1">Start Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="start-date"
+                        variant="outline"
+                        className="w-[140px] justify-start text-left font-normal border border-border focus-visible:ring-ring focus-visible:border-ring h-9 px-3"
+                      >
+                        {startDate ? format(startDate, "MM/dd/yyyy") : "Select date"}
+                        <CalendarIcon className="ml-auto h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        mode="single"
+                        selected={startDate}
+                        onSelect={setStartDate}
+                        captionLayout="dropdown"
+                        fromYear={new Date().getFullYear() - 10}
+                        toYear={new Date().getFullYear() + 10}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="flex flex-col">
+                  <Label htmlFor="end-date" className="text-sm font-medium text-foreground mb-1">End Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="end-date"
+                        variant="outline"
+                        className="w-[140px] justify-start text-left font-normal border border-border focus-visible:ring-ring focus-visible:border-ring h-9 px-3"
+                      >
+                        {endDate ? format(endDate, "MM/dd/yyyy") : "Select date"}
+                        <CalendarIcon className="ml-auto h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        mode="single"
+                        selected={endDate}
+                        onSelect={setEndDate}
+                        captionLayout="dropdown"
+                        fromYear={new Date().getFullYear() - 10}
+                        toYear={new Date().getFullYear() + 10}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const currentYear = new Date().getFullYear()
+                    setStartDate(new Date(currentYear - 1, 0, 1)) // January 1 of last year
+                    setEndDate(new Date(currentYear, 11, 31)) // December 31 of this year
+                    fetchMarketingActivities()
+                  }}
+                  disabled={loading}
+                  className="h-9 w-9 p-0"
+                  title={loading ? 'Refreshing...' : 'Refresh Data'}
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Marketing Metrics */}
@@ -612,21 +698,24 @@ export default function MarketingPage() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.roi}%</div>
-                <p className="text-xs text-muted-foreground">Dynamic ROI calculation</p>
+                <div className="text-2xl font-bold">{stats.roi.toFixed(2)}</div>
+                <p className="text-xs text-muted-foreground">Leads per graduating student</p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card 
+              className="cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => setIsConversionRateDialogOpen(true)}
+            >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {stats.activityCount > 0 ? Math.round((stats.totalLeads / stats.activityCount) * 100) : 0}%
+                  {stats.conversionRate.toFixed(2)}%
                 </div>
-                <p className="text-xs text-muted-foreground">Leads per activity</p>
+                <p className="text-xs text-muted-foreground">Leads to enrolled students</p>
               </CardContent>
             </Card>
           </div>
@@ -747,76 +836,6 @@ export default function MarketingPage() {
             </CardContent>
           </Card>
 
-          {/* Campaign Performance */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Active Campaigns</CardTitle>
-                <CardDescription>Current marketing campaigns and their performance</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {activeCampaigns.length > 0 ? activeCampaigns.map((campaign, index) => (
-                    <div key={index} className="p-4 border border-border rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">{campaign.name}</h4>
-                        <Badge variant={campaign.status === "Active" ? "default" : "secondary"}>
-                          {campaign.status}
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div>
-                          <p className="text-muted-foreground">Leads</p>
-                          <p className="font-medium">{campaign.leads}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Conversion</p>
-                          <p className="font-medium">{campaign.conversion}%</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Budget</p>
-                          <p className="font-medium">{campaign.budget}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )) : (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">No active campaigns found for {periodLabel.toLowerCase()}</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Channel Performance</CardTitle>
-                <CardDescription>Lead generation by marketing channel</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {channelPerformance.length > 0 ? channelPerformance.map((channel, index) => (
-                    <div key={index} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">{channel.channel}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">{channel.leads} leads</span>
-                          <span className="text-sm font-medium">{channel.cost}</span>
-                        </div>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-primary h-2 rounded-full" style={{ width: `${channel.percentage}%` }}></div>
-                      </div>
-                    </div>
-                  )) : (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">No channel performance data available for {periodLabel.toLowerCase()}</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
 
           {/* Add Activity Dialog */}
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -1111,6 +1130,227 @@ export default function MarketingPage() {
                   </TableBody>
                 </Table>
               </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Conversion Rate by Event Dialog */}
+          <Dialog open={isConversionRateDialogOpen} onOpenChange={setIsConversionRateDialogOpen}>
+            <DialogContent className="!max-w-[98vw] !w-[98vw] !h-[98vh] !max-h-[98vh] !m-0 !rounded-lg !top-[50%] !left-[50%] !translate-x-[-50%] !translate-y-[-50%] overflow-hidden p-4 flex flex-col">
+              <DialogHeader className="space-y-2 pb-3 border-b">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600">
+                    <BarChart3 className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl font-bold">Conversion Rate by Event</DialogTitle>
+                    <DialogDescription className="text-sm mt-0.5">
+                      Detailed breakdown of conversion rates for each marketing event
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+              
+              {eventConversionRates.length > 0 ? (
+                <div className="space-y-2 mt-2 flex-1 flex flex-col overflow-hidden">
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Total Events</p>
+                            <p className="text-xl font-bold text-blue-900 dark:text-blue-100 mt-0.5">
+                              {eventConversionRates.length}
+                            </p>
+                          </div>
+                          <Target className="h-6 w-6 text-blue-500 opacity-50" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800">
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-medium text-green-600 dark:text-green-400">Total Leads</p>
+                            <p className="text-xl font-bold text-green-900 dark:text-green-100 mt-0.5">
+                              {eventConversionRates.reduce((sum, e) => sum + e.leads, 0).toLocaleString()}
+                            </p>
+                          </div>
+                          <Users className="h-6 w-6 text-green-500 opacity-50" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800">
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-medium text-purple-600 dark:text-purple-400">Avg. Rate</p>
+                            <p className="text-xl font-bold text-purple-900 dark:text-purple-100 mt-0.5">
+                              {eventConversionRates.length > 0 
+                                ? (eventConversionRates.reduce((sum, e) => sum + e.conversionRate, 0) / eventConversionRates.length).toFixed(1)
+                                : '0'
+                              }%
+                            </p>
+                          </div>
+                          <TrendingUp className="h-6 w-6 text-purple-500 opacity-50" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Chart Section */}
+                  <Card className="border-2 shadow-lg flex-1 flex flex-col min-h-0">
+                    <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border-b py-2 flex-shrink-0">
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <BarChart3 className="h-3.5 w-3.5" />
+                        Event Performance Analysis
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Conversion rate percentage for each marketing event
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-2 flex-1 flex flex-col min-h-0">
+                      <div className="w-full h-full min-h-[200px] max-h-[250px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={eventConversionRates}
+                            layout="vertical"
+                            margin={{ top: 5, right: 20, left: 90, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" opacity={0.3} />
+                            <XAxis 
+                              type="number" 
+                              domain={[0, 'dataMax']}
+                              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                              label={{ value: 'Conversion Rate (%)', position: 'insideBottom', offset: -3, fill: 'hsl(var(--foreground))', style: { fontSize: '10px' } }}
+                            />
+                            <YAxis 
+                              type="category" 
+                              dataKey="event" 
+                              width={85}
+                              tick={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 500 }}
+                            />
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  const data = payload[0].payload
+                                  return (
+                                    <div className="rounded-lg border-2 bg-background/95 backdrop-blur-sm p-4 shadow-xl">
+                                      <div className="space-y-2">
+                                        <div className="flex items-center gap-2 pb-2 border-b">
+                                          <Target className="h-4 w-4 text-primary" />
+                                          <span className="font-bold text-base">{data.event}</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                          <div className="space-y-1">
+                                            <p className="text-xs uppercase text-muted-foreground font-medium">Conversion Rate</p>
+                                            <p className="text-lg font-bold text-primary">
+                                              {data.conversionRate.toFixed(2)}%
+                                            </p>
+                                          </div>
+                                          <div className="space-y-1">
+                                            <p className="text-xs uppercase text-muted-foreground font-medium">Leads Generated</p>
+                                            <p className="text-lg font-bold text-foreground">
+                                              {data.leads.toLocaleString()}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )
+                                }
+                                return null
+                              }}
+                            />
+                            <Bar
+                              dataKey="conversionRate"
+                              fill="hsl(var(--primary))"
+                              radius={[0, 8, 8, 0]}
+                              strokeWidth={2}
+                            >
+                              {eventConversionRates.map((entry, index) => {
+                                const colors = [
+                                  'hsl(217, 91%, 60%)',  // Blue
+                                  'hsl(142, 76%, 36%)',  // Green
+                                  'hsl(262, 83%, 58%)',  // Purple
+                                  'hsl(24, 95%, 53%)',   // Orange
+                                  'hsl(0, 84%, 60%)',    // Red
+                                  'hsl(280, 100%, 70%)', // Pink
+                                  'hsl(199, 89%, 48%)',  // Cyan
+                                  'hsl(47, 96%, 53%)',   // Yellow
+                                ]
+                                return (
+                                  <Cell 
+                                    key={`cell-${index}`} 
+                                    fill={colors[index % colors.length]}
+                                    stroke={colors[index % colors.length]}
+                                  />
+                                )
+                              })}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      
+                      {/* Event Details List */}
+                      <div className="mt-3 pt-3 border-t">
+                        <p className="text-xs font-semibold mb-2 text-muted-foreground">Event Details</p>
+                        <div className="space-y-1">
+                          {eventConversionRates.map((event, index) => {
+                            const colors = [
+                              'bg-blue-500',
+                              'bg-green-500',
+                              'bg-purple-500',
+                              'bg-orange-500',
+                              'bg-red-500',
+                              'bg-pink-500',
+                              'bg-cyan-500',
+                              'bg-yellow-500',
+                            ]
+                            return (
+                              <div
+                                key={index}
+                                className="flex items-center gap-2 p-1.5 rounded-lg border hover:bg-muted/50 transition-colors"
+                              >
+                                <div className={`w-1.5 h-6 rounded-full ${colors[index % colors.length]}`} />
+                                <div className="flex-1">
+                                  <p className="font-semibold text-xs text-foreground">{event.event}</p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {event.leads.toLocaleString()} leads
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground">•</span>
+                                    <span className="text-[10px] font-medium text-primary">
+                                      {event.conversionRate.toFixed(2)}% conversion
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-sm font-bold text-foreground">
+                                    {event.conversionRate.toFixed(1)}%
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-[400px] text-center space-y-4">
+                  <div className="p-4 rounded-full bg-muted">
+                    <BarChart3 className="h-12 w-12 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">No event data available</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Add marketing activities to see conversion rates
+                    </p>
+                  </div>
+                </div>
+              )}
             </DialogContent>
           </Dialog>
         </main>

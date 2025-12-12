@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>System Outputs Table</title>
+    <style>
+        body {
+            font-family: 'Calibri', Arial, sans-serif;
+            margin: 40px;
+            font-size: 11pt;
+            color: #000000;
+        }
+        h1 {
+            font-size: 16pt;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+            page-break-inside: auto;
+            border: 1px solid #000000;
+        }
+        th {
+            background-color: #ffffff;
+            color: #000000;
+            font-weight: bold;
+            padding: 8px 12px;
+            text-align: left;
+            border: 1px solid #000000;
+            font-size: 11pt;
+        }
+        td {
+            padding: 8px 12px;
+            border: 1px solid #000000;
+            vertical-align: top;
+            font-size: 11pt;
+        }
+        .output-field {
+            width: 30%;
+            font-weight: normal;
+        }
+        .description {
+            width: 45%;
+        }
+        .output-type {
+            width: 25%;
+            font-family: 'Calibri', Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <h1>System Outputs Table</h1>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Output Field</th>
+                <th>Description</th>
+                <th>Output Type</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="output-field">inquiriesCount</td>
+                <td class="description">Total number of student inquiries received within the specified date range</td>
+                <td class="output-type">Integer</td>
+            </tr>
+            <tr>
+                <td class="output-field">enrollmentsCount</td>
+                <td class="description">Total number of students enrolled within the specified date range</td>
+                <td class="output-type">Integer</td>
+            </tr>
+            <tr>
+                <td class="output-field">inquiriesGrowth</td>
+                <td class="description">Year-over-year percentage growth in inquiries compared to the previous year</td>
+                <td class="output-type">Percentage (Float)</td>
+            </tr>
+            <tr>
+                <td class="output-field">enrollmentsGrowth</td>
+                <td class="description">Year-over-year percentage growth in enrollments compared to the previous year</td>
+                <td class="output-type">Percentage (Float)</td>
+            </tr>
+            <tr>
+                <td class="output-field">monthOverMonthInquiries</td>
+                <td class="description">Month-over-month percentage growth in inquiries compared to the previous month</td>
+                <td class="output-type">Percentage (Float)</td>
+            </tr>
+            <tr>
+                <td class="output-field">monthOverMonthEnrollments</td>
+                <td class="description">Month-over-month percentage growth in enrollments compared to the previous month</td>
+                <td class="output-type">Percentage (Float)</td>
+            </tr>
+            <tr>
+                <td class="output-field">previousPeriodInquiries</td>
+                <td class="description">Total inquiries count from the previous period (same date range one year ago)</td>
+                <td class="output-type">Integer</td>
+            </tr>
+            <tr>
+                <td class="output-field">previousPeriodEnrollments</td>
+                <td class="description">Total enrollments count from the previous period (same date range one year ago)</td>
+                <td class="output-type">Integer</td>
+            </tr>
+            <tr>
+                <td class="output-field">upcomingActivity</td>
+                <td class="description">Next scheduled marketing activity with title and date</td>
+                <td class="output-type">Object (title: String, date: String) or Null</td>
+            </tr>
+            <tr>
+                <td class="output-field">topCourses</td>
+                <td class="description">Top 5 most preferred college programs based on inquiry data, sorted by frequency</td>
+                <td class="output-type">Array of Objects (name: String, value: Integer)</td>
+            </tr>
+            <tr>
+                <td class="output-field">topStrands</td>
+                <td class="description">Top 5 most preferred senior high school strands based on inquiry data, sorted by frequency</td>
+                <td class="output-type">Array of Objects (name: String, value: Integer)</td>
+            </tr>
+            <tr>
+                <td class="output-field">enrolledPerProgram</td>
+                <td class="description">Count of enrolled students grouped by college program, sorted by enrollment count</td>
+                <td class="output-type">Array of Objects (name: String, value: Integer)</td>
+            </tr>
+            <tr>
+                <td class="output-field">enrolledPerStrand</td>
+                <td class="description">Count of enrolled students grouped by senior high strand, sorted by enrollment count</td>
+                <td class="output-type">Array of Objects (name: String, value: Integer)</td>
+            </tr>
+            <tr>
+                <td class="output-field">sourceEffectiveness</td>
+                <td class="description">Marketing source performance metrics including inquiries, enrollments, and conversion rates per source</td>
+                <td class="output-type">Array of Objects (name: String, inquiries: Integer, enrollments: Integer, conversionRate: Float)</td>
+            </tr>
+            <tr>
+                <td class="output-field">inquiryRecord</td>
+                <td class="description">Individual inquiry record containing student information, program preferences, contact details, and status</td>
+                <td class="output-type">Object (id: Integer, name: String, email: String, phone: String, program: String, status: String, date: String, studentType: String, notes: String, adminName: String)</td>
+            </tr>
+            <tr>
+                <td class="output-field">enrollmentRecord</td>
+                <td class="description">Individual enrollment record containing student information, program enrollment, and administrative details</td>
+                <td class="output-type">Object (id: Integer, name: String, email: String, phone: String, program: String, date: String, studentType: String, lastSchoolAttended: String, adminName: String)</td>
+            </tr>
+            <tr>
+                <td class="output-field">marketingActivityRecord</td>
+                <td class="description">Individual marketing activity record containing event details, lead generation, and budget information</td>
+                <td class="output-type">Object (id: Integer, title: String, leadsGenerated: Integer, school: String, budget: String, date: String)</td>
+            </tr>
+            <tr>
+                <td class="output-field">schoolRecord</td>
+                <td class="description">Individual school record containing school information, type, student counts, and course offerings</td>
+                <td class="output-type">Object (id: Integer, name: String, type: String, status: String, school_type: String, km_away: Float, grade10_students: Integer, grade12_students: Integer, courses: Array)</td>
+            </tr>
+            <tr>
+                <td class="output-field">conversionRate</td>
+                <td class="description">Overall inquiry-to-enrollment conversion percentage calculated as (enrollments / inquiries) × 100</td>
+                <td class="output-type">Percentage (Float)</td>
+            </tr>
+            <tr>
+                <td class="output-field">totalEnrolled</td>
+                <td class="description">Total count of all enrolled students in the system</td>
+                <td class="output-type">Integer</td>
+            </tr>
+            <tr>
+                <td class="output-field">newEnrollments</td>
+                <td class="description">Count of students enrolled in the current year</td>
+                <td class="output-type">Integer</td>
+            </tr>
+            <tr>
+                <td class="output-field">mostEnrolledProgram</td>
+                <td class="description">Name of the program with the highest number of enrolled students</td>
+                <td class="output-type">String</td>
+            </tr>
+            <tr>
+                <td class="output-field">totalLeads</td>
+                <td class="description">Total number of leads generated from marketing activities within the filtered time period</td>
+                <td class="output-type">Integer</td>
+            </tr>
+            <tr>
+                <td class="output-field">totalBudget</td>
+                <td class="description">Total budget spent on marketing activities within the filtered time period</td>
+                <td class="output-type">Currency (Float)</td>
+            </tr>
+            <tr>
+                <td class="output-field">costPerLead</td>
+                <td class="description">Average cost per lead calculated as total budget divided by total leads</td>
+                <td class="output-type">Currency (Float)</td>
+            </tr>
+            <tr>
+                <td class="output-field">campaignROI</td>
+                <td class="description">Campaign return on investment calculated as total leads divided by total enrolled students</td>
+                <td class="output-type">Float (leads per student)</td>
+            </tr>
+            <tr>
+                <td class="output-field">eventConversionRate</td>
+                <td class="description">Conversion rate for each marketing event calculated as (total enrolled students / event leads) × 100</td>
+                <td class="output-type">Percentage (Float) per event</td>
+            </tr>
+            <tr>
+                <td class="output-field">filteredInquiries</td>
+                <td class="description">List of inquiry records filtered by search term, student type, status, and date range</td>
+                <td class="output-type">Array of InquiryRecord Objects</td>
+            </tr>
+            <tr>
+                <td class="output-field">filteredEnrollments</td>
+                <td class="description">List of enrollment records filtered by search term and date range, categorized by student type</td>
+                <td class="output-type">Array of EnrollmentRecord Objects</td>
+            </tr>
+            <tr>
+                <td class="output-field">filteredMarketingActivities</td>
+                <td class="description">List of marketing activity records filtered by time period (all, week, month, next month) and date range</td>
+                <td class="output-type">Array of MarketingActivityRecord Objects</td>
+            </tr>
+            <tr>
+                <td class="output-field">filteredSchools</td>
+                <td class="description">List of school records filtered by search term, status, school type, and categorized by school type (feeder, competitor, non-feeder)</td>
+                <td class="output-type">Array of SchoolRecord Objects</td>
+            </tr>
+            <tr>
+                <td class="output-field">inquiriesChartData</td>
+                <td class="description">Time-series data for inquiries displayed in charts, grouped by period (week, month, year)</td>
+                <td class="output-type">Array of Objects (period: String, inquiries: Integer)</td>
+            </tr>
+            <tr>
+                <td class="output-field">enrollmentsChartData</td>
+                <td class="description">Time-series data for enrollments displayed in charts, grouped by period (week, month, year)</td>
+                <td class="output-type">Array of Objects (period: String, enrollments: Integer)</td>
+            </tr>
+            <tr>
+                <td class="output-field">sourceData</td>
+                <td class="description">Marketing source distribution data for visualization in pie charts or bar charts</td>
+                <td class="output-type">Array of Objects (name: String, value: Integer)</td>
+            </tr>
+            <tr>
+                <td class="output-field">eventTitles</td>
+                <td class="description">List of available marketing event titles that can be selected or created for activities</td>
+                <td class="output-type">Array of Strings</td>
+            </tr>
+            <tr>
+                <td class="output-field">feederSchools</td>
+                <td class="description">List of feeder schools available for selection in marketing activities</td>
+                <td class="output-type">Array of Objects (id: Integer, name: String)</td>
+            </tr>
+            <tr>
+                <td class="output-field">userPermissions</td>
+                <td class="description">List of permissions assigned to the logged-in user for access control</td>
+                <td class="output-type">Array of Strings</td>
+            </tr>
+            <tr>
+                <td class="output-field">adminName</td>
+                <td class="description">Name of the administrator who created or last modified a record</td>
+                <td class="output-type">String</td>
+            </tr>
+            <tr>
+                <td class="output-field">programFrequency</td>
+                <td class="description">Frequency count of each program across all enrollments for statistical analysis</td>
+                <td class="output-type">Object (programName: String, count: Integer)</td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>

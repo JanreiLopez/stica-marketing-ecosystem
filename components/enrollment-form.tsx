@@ -6,6 +6,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Button } from "@/components/ui/button"
+import { Check, ChevronsUpDown } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { StudentFormData, SchoolOption } from "@/lib/enrollment-data"
 import { supabase } from "@/lib/supabase-client"
 
@@ -18,11 +23,15 @@ type EnrollmentFormProps = {
 export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollment = false }: EnrollmentFormProps) {
   const [schools, setSchools] = useState<SchoolOption[]>([])
   const [loadingSchools, setLoadingSchools] = useState(false)
+  const [schoolPopoverOpen, setSchoolPopoverOpen] = useState(false)
 
-  // Fetch schools based on student type
+  // Fetch schools based on last school attended
   useEffect(() => {
     const fetchSchools = async () => {
-      if (!studentFormData.studentType) return
+      if (!studentFormData.lastSchoolAttended) {
+        setSchools([])
+        return
+      }
       
       setLoadingSchools(true)
       
@@ -34,21 +43,8 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
           
         if (error) throw error
         
-        // Filter schools based on student type
-        let filteredSchools: SchoolOption[] = []
-        if (studentFormData.studentType === "senior-high") {
-          // For senior high, show feeder and non-feeder schools
-          filteredSchools = data.filter(school => 
-            school.type === "feeder" || school.type === "non-feeder"
-          ) as SchoolOption[]
-        } else if (studentFormData.studentType === "college") {
-          // For college, show competitor schools
-          filteredSchools = data.filter(school => 
-            school.type === "competitor"
-          ) as SchoolOption[]
-        }
-        
-        setSchools(filteredSchools)
+        // Show all active schools regardless of last school attended
+        setSchools(data as SchoolOption[])
       } catch (error) {
         console.error("Error fetching schools:", error)
         setSchools([])
@@ -58,7 +54,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
     }
     
     fetchSchools()
-  }, [studentFormData.studentType])
+  }, [studentFormData.lastSchoolAttended])
 
   const handleArrayChange = (field: "programs", value: string, checked: boolean) => {
     setStudentFormData((prev) => ({
@@ -179,7 +175,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
                 inputMode="numeric"
                 pattern="[0-9]*"
                 placeholder="Enter 11-digit student number"
-                value={studentFormData.studentNumber}
+                value={studentFormData.studentNumber ?? ""}
                 onChange={(e) => {
                   const value = e.target.value.replace(/\D/g, "")
                   if (value.length <= 11) {
@@ -207,7 +203,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
           <Input
             id="firstName"
             placeholder="Enter first name"
-            value={studentFormData.firstName}
+            value={studentFormData.firstName ?? ""}
             onChange={(e) => setStudentFormData((prev) => ({ ...prev, firstName: e.target.value }))}
             className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
           />
@@ -217,7 +213,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
           <Input
             id="middleName"
             placeholder="Enter middle name"
-            value={studentFormData.middleName}
+            value={studentFormData.middleName ?? ""}
             onChange={(e) => setStudentFormData((prev) => ({ ...prev, middleName: e.target.value }))}
             className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
           />
@@ -227,7 +223,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
           <Input
             id="lastName"
             placeholder="Enter last name"
-            value={studentFormData.lastName}
+            value={studentFormData.lastName ?? ""}
             onChange={(e) => setStudentFormData((prev) => ({ ...prev, lastName: e.target.value }))}
             className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
           />
@@ -239,7 +235,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
         <Input
           id="dateOfBirth"
           type="date"
-          value={studentFormData.dateOfBirth}
+          value={studentFormData.dateOfBirth ?? ""}
           onChange={(e) => setStudentFormData((prev) => ({ ...prev, dateOfBirth: e.target.value }))}
           className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
         />
@@ -292,7 +288,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
               id="landline"
               type="tel"
               placeholder="Enter landline number"
-              value={studentFormData.landline}
+              value={studentFormData.landline ?? ""}
               onChange={(e) => setStudentFormData((prev) => ({ ...prev, landline: e.target.value }))}
               className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
             />
@@ -303,7 +299,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
               id="mobileNumber"
               type="tel"
               placeholder="Enter mobile number"
-              value={studentFormData.mobileNumber}
+              value={studentFormData.mobileNumber ?? ""}
               onChange={(e) => setStudentFormData((prev) => ({ ...prev, mobileNumber: e.target.value }))}
               className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
             />
@@ -314,7 +310,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
               id="email"
               type="email"
               placeholder="Enter email address"
-              value={studentFormData.email}
+              value={studentFormData.email ?? ""}
               onChange={(e) => setStudentFormData((prev) => ({ ...prev, email: e.target.value }))}
               className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
             />
@@ -509,7 +505,19 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
           <Label htmlFor="lastSchoolAttended">Last School Attended</Label>
           <Select
             value={studentFormData.lastSchoolAttended}
-            onValueChange={(value) => setStudentFormData((prev) => ({ ...prev, lastSchoolAttended: value }))}
+            onValueChange={(value) => {
+              setStudentFormData((prev) => {
+                const updated = { ...prev, lastSchoolAttended: value }
+                // If ALS A&E/PEPT is selected, automatically set school name
+                if (value === "als-ae-pept") {
+                  updated.schoolName = "ALS A&E/PEPT"
+                } else {
+                  // Clear school name when changing to other options
+                  updated.schoolName = ""
+                }
+                return updated
+              })
+            }}
           >
             <SelectTrigger id="lastSchoolAttended" className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500">
               <SelectValue placeholder="Select last school attended" />
@@ -523,34 +531,77 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="schoolName">School Name</Label>
-          <Select
-            value={studentFormData.schoolName}
-            onValueChange={(value) => setStudentFormData((prev) => ({ ...prev, schoolName: value }))}
-            disabled={!studentFormData.studentType || loadingSchools}
-          >
-            <SelectTrigger 
-              id="schoolName" 
-              className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
-            >
-              <SelectValue placeholder={
-                !studentFormData.studentType 
-                  ? "Please select student type first" 
-                  : loadingSchools 
-                    ? "Loading schools..." 
-                    : "Select school name"
-              } />
-            </SelectTrigger>
-            <SelectContent>
-              {schools.map((school) => (
-                <SelectItem key={school.id} value={school.name}>
-                  {school.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {studentFormData.lastSchoolAttended === "als-ae-pept" ? (
+          <div className="space-y-2">
+            <Label htmlFor="schoolName">School Name</Label>
+            <Input
+              id="schoolName"
+              value="ALS A&E/PEPT"
+              disabled
+              className="border border-gray-400 bg-muted"
+            />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label htmlFor="schoolName">School Name</Label>
+            <Popover open={schoolPopoverOpen} onOpenChange={setSchoolPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  id="schoolName"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={schoolPopoverOpen}
+                  className={cn(
+                    "w-full justify-between border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500",
+                    !studentFormData.schoolName && "text-muted-foreground"
+                  )}
+                  disabled={!studentFormData.lastSchoolAttended || loadingSchools}
+                >
+                  {loadingSchools
+                    ? "Loading schools..."
+                    : studentFormData.schoolName || (
+                        !studentFormData.lastSchoolAttended
+                          ? "Please select last school attended first"
+                          : "Select school name"
+                      )}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent 
+                className="p-0" 
+                align="start"
+                style={{ width: 'var(--radix-popover-trigger-width)' }}
+              >
+                <Command>
+                  <CommandInput placeholder="Search schools..." />
+                  <CommandList>
+                    <CommandEmpty>No school found.</CommandEmpty>
+                    <CommandGroup>
+                      {schools.map((school) => (
+                        <CommandItem
+                          key={school.id}
+                          value={school.name}
+                          onSelect={() => {
+                            setStudentFormData((prev) => ({ ...prev, schoolName: school.name }))
+                            setSchoolPopoverOpen(false)
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              studentFormData.schoolName === school.name ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {school.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
 
         {studentFormData.studentType !== "senior-high" && (
           <div className="space-y-2">
@@ -558,7 +609,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
             <Input
               id="programTrackStrand"
               placeholder="Enter program, track & strand, or specialization"
-              value={studentFormData.programTrackStrand}
+              value={studentFormData.programTrackStrand ?? ""}
               onChange={(e) => setStudentFormData((prev) => ({ ...prev, programTrackStrand: e.target.value }))}
               className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
             />

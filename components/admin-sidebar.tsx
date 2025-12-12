@@ -8,21 +8,23 @@ import { Button } from "@/components/ui/button"
 
 interface AdminSidebarProps {
   onLogout: () => void
+  userPermissions: string[] // Added for dynamic access control
 }
 
 interface NavigationItem {
   href: string
   label: string
   icon: React.ComponentType<{ className?: string }>
+  moduleId: string // Added to link with permissions
 }
 
 const navigationItems: NavigationItem[] = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: TrendingUp },
-  { href: "/admin/inquiries", label: "Inquiries", icon: FileText },
-  { href: "/admin/enrollment", label: "Enrollment", icon: Users },
-  { href: "/admin/marketing", label: "Marketing Activities", icon: Megaphone },
-  { href: "/admin/schools", label: "Schools", icon: BookOpen },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
+  { href: "/admin/dashboard", label: "Dashboard", icon: TrendingUp, moduleId: "dashboard" }, // Assuming 'dashboard' is a permission
+  { href: "/admin/inquiries", label: "Inquiries", icon: FileText, moduleId: "inquiries" },
+  { href: "/admin/enrollment", label: "Enrollment", icon: Users, moduleId: "enrollment" },
+  { href: "/admin/marketing", label: "Marketing Activities", icon: Megaphone, moduleId: "marketing" },
+  { href: "/admin/schools", label: "Schools", icon: BookOpen, moduleId: "schools" },
+  { href: "/admin/settings", label: "Settings", icon: Settings, moduleId: "settings" }, // Assuming 'settings' is a permission
 ]
 
 const NavigationItem = ({ item, isActive }: { item: NavigationItem; isActive: boolean }) => {
@@ -40,8 +42,25 @@ const NavigationItem = ({ item, isActive }: { item: NavigationItem; isActive: bo
   )
 }
 
-export function AdminSidebar({ onLogout }: AdminSidebarProps) {
+export function AdminSidebar({ onLogout, userPermissions }: AdminSidebarProps) {
   const pathname = usePathname()
+  
+  // Ensure userPermissions is always an array and normalize it
+  // If permissions array is empty (still loading), show all modules to prevent flicker
+  const isPermissionsLoaded = Array.isArray(userPermissions) && userPermissions.length > 0
+  const defaultPermissions = ['inquiries', 'enrollment', 'marketing', 'schools', 'settings']
+  const permissionsToUse = isPermissionsLoaded ? userPermissions : defaultPermissions
+  
+  const permissions = Array.isArray(permissionsToUse) 
+    ? permissionsToUse.map(p => String(p).toLowerCase().trim())
+    : []
+  
+  // Debug log to help diagnose permission issues (only when permissions are loaded)
+  if (typeof window !== 'undefined' && isPermissionsLoaded) {
+    console.log('AdminSidebar - Raw userPermissions:', userPermissions)
+    console.log('AdminSidebar - Normalized permissions:', permissions)
+    console.log('AdminSidebar - Includes schools?', permissions.includes('schools'))
+  }
 
   return (
     <aside className="fixed left-0 top-0 w-64 bg-sidebar border-r border-sidebar-border h-screen flex flex-col z-50">
@@ -65,15 +84,42 @@ export function AdminSidebar({ onLogout }: AdminSidebarProps) {
       <nav className="p-4 flex flex-col flex-1 overflow-y-auto">
         <div className="space-y-2">
           <h3 className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider mb-3">Navigation</h3>
-          {navigationItems.slice(0, -1).map((item) => (
-            <NavigationItem key={item.href} item={item} isActive={pathname === item.href} />
-          ))}
+          {navigationItems
+            .filter(item => {
+              // Dashboard always shows, other items show if permission exists
+              // Normalize permissions to handle case sensitivity and whitespace
+              const normalizedPermissions = permissions.map(p => String(p).toLowerCase().trim())
+              const normalizedModuleId = item.moduleId.toLowerCase().trim()
+              const shouldShow = item.moduleId === "dashboard" || normalizedPermissions.includes(normalizedModuleId)
+              
+              // Debug log for all modules to see what's happening
+              if (item.moduleId === "schools" || item.moduleId === "inquiries" || item.moduleId === "enrollment" || item.moduleId === "marketing") {
+                console.log(`${item.moduleId} module check:`, {
+                  moduleId: item.moduleId,
+                  normalizedModuleId,
+                  permissions,
+                  normalizedPermissions,
+                  includes: normalizedPermissions.includes(normalizedModuleId),
+                  shouldShow
+                })
+              }
+              return shouldShow
+            })
+            .filter(item => item.moduleId !== "settings") // Exclude settings from main navigation
+            .map((item) => (
+              <NavigationItem key={item.href} item={item} isActive={pathname === item.href} />
+            ))}
         </div>
 
         <div className="mt-auto pt-8">
           <div className="mb-8">
             <h3 className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider mb-3">Settings</h3>
-            <NavigationItem item={navigationItems[navigationItems.length - 1]} isActive={pathname === navigationItems[navigationItems.length - 1].href} />
+            {navigationItems
+              .filter(item => item.moduleId === "settings" || permissions.includes(item.moduleId))
+              .slice(-1)
+              .map((item) => (
+                <NavigationItem key={item.href} item={item} isActive={pathname === item.href} />
+              ))}
           </div>
 
           <div className="pt-4 border-t border-sidebar-border">

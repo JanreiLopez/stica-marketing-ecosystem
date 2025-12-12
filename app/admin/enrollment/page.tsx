@@ -10,9 +10,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Users, TrendingUp, Search, Plus, Eye, Edit, Mail, Phone, ChevronDown, GraduationCap, Trash2, Maximize2, Minimize2 } from "lucide-react"
+import { Users, TrendingUp, Search, Plus, Eye, Edit, Mail, Phone, ChevronDown, GraduationCap, Trash2, Maximize2, Minimize2, CalendarIcon } from "lucide-react"
 import { AdminSidebar } from "@/components/admin-sidebar"
-import { DateRangePicker } from "@/components/date-range-picker"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { format } from "date-fns"
 import { useRouter } from "next/navigation"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { EnrollmentForm } from "@/components/enrollment-form"
@@ -65,6 +67,7 @@ export default function EnrollmentPage() {
   const [isTableFullscreen, setIsTableFullscreen] = useState(false)
   const [inquiriesCount, setInquiriesCount] = useState(0)
   const { startDate, endDate, setStartDate, setEndDate } = useDateRange()
+  const [userPermissions, setUserPermissions] = useState<string[]>([]); // New state for user permissions
 
   const fetchStudents = useCallback(async () => {
     setIsLoadingStudents(true)
@@ -85,8 +88,39 @@ export default function EnrollmentPage() {
   }, [])
 
   useEffect(() => {
-    fetchStudents()
-  }, [fetchStudents])
+    const fetchUserPermissions = async () => {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        console.error('Error fetching user:', authError);
+        router.push('/login'); // Redirect to login if not authenticated
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('permissions')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        setUserPermissions([]);
+      } else {
+        try {
+          const permissions = typeof profile.permissions === 'string'
+            ? JSON.parse(profile.permissions)
+            : profile.permissions;
+          setUserPermissions(permissions || []);
+        } catch (parseError) {
+          console.error('Error parsing permissions:', parseError);
+          setUserPermissions([]);
+        }
+      }
+    };
+
+    fetchUserPermissions();
+    fetchStudents(); // Also fetch students when component mounts
+  }, [fetchStudents, router]); // Added router to dependency array
 
   useEffect(() => {
     const fetchInquiriesCount = async () => {
@@ -121,6 +155,29 @@ export default function EnrollmentPage() {
       }
     }
     
+    // Fetch current admin's name
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      setStudentError("You must be logged in to create enrollments. Please refresh the page and try again.")
+      return
+    }
+
+    // Fetch admin's name from profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('first_name, last_name, name')
+      .eq('id', user.id)
+      .single()
+
+    let adminName = "Unknown Admin"
+    if (!profileError && profile) {
+      if (profile.name) {
+        adminName = profile.name
+      } else if (profile.first_name || profile.last_name) {
+        adminName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || "Unknown Admin"
+      }
+    }
+    
     const fullName = `${studentFormData.firstName} ${studentFormData.middleName ? studentFormData.middleName + " " : ""}${studentFormData.lastName}`.trim()
     
     const programNames = mapProgramCodesToLabel(studentFormData.programs, studentFormData.program)
@@ -139,6 +196,7 @@ export default function EnrollmentPage() {
       program_track_strand: studentFormData.programTrackStrand || null,
       college_student_type: studentFormData.collegeStudentType || null,
       student_number: studentFormData.studentNumber || null,
+      admin_name: adminName, // Store admin name permanently
     }
     
     const { error } = await supabase.from("enrollments").insert(payload)
@@ -202,6 +260,13 @@ export default function EnrollmentPage() {
       }
     }
     
+    // Find the existing enrollment to preserve admin_name
+    const existingEnrollment = enrolledStudents.find(stud => stud.id === editingStudentId)
+    if (!existingEnrollment) {
+      setStudentError("Enrollment not found.")
+      return
+    }
+    
     const fullName = `${studentFormData.firstName} ${studentFormData.middleName ? studentFormData.middleName + " " : ""}${studentFormData.lastName}`.trim()
     
     const programNames = mapProgramCodesToLabel(studentFormData.programs, studentFormData.program || "")
@@ -219,6 +284,7 @@ export default function EnrollmentPage() {
       program_track_strand: studentFormData.programTrackStrand || null,
       college_student_type: studentFormData.collegeStudentType || null,
       student_number: studentFormData.studentNumber || null,
+      admin_name: existingEnrollment.adminName || "Unknown Admin", // Preserve existing admin_name
     }
     
     const { error } = await supabase.from("enrollments").update(payload).eq("id", editingStudentId)
@@ -271,12 +337,12 @@ export default function EnrollmentPage() {
   })
 
   const totalEnrolled = students.length
-  const currentMonth = new Date()
+  const currentYear = new Date().getFullYear()
   const newEnrollments = students.filter((student) => {
     if (!student.date) return false
     const date = new Date(student.date)
     if (isNaN(date.getTime())) return false
-    return date.getMonth() === currentMonth.getMonth() && date.getFullYear() === currentMonth.getFullYear()
+    return date.getFullYear() === currentYear
   }).length
   const conversionRate = inquiriesCount > 0 ? (totalEnrolled / inquiriesCount) * 100 : 0
   const programFrequency: Record<string, number> = {}
@@ -356,7 +422,7 @@ export default function EnrollmentPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900">
         {/* Sidebar Navigation - Fixed */}
-        <AdminSidebar onLogout={handleLogout} />
+        <AdminSidebar onLogout={handleLogout} userPermissions={userPermissions} />
 
         {/* Main Content - Account for fixed sidebar */}
         <main className="ml-64 p-6">
@@ -366,12 +432,77 @@ export default function EnrollmentPage() {
               <div>
                 <h1 className="text-3xl font-serif font-bold text-slate-700 dark:text-slate-200 mb-2">Enrollment Management</h1>
               </div>
-              <DateRangePicker
-                startDate={startDate}
-                endDate={endDate}
-                onStartDateChange={setStartDate}
-                onEndDateChange={setEndDate}
-              />
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col">
+                  <Label htmlFor="start-date" className="text-sm font-medium text-foreground mb-1">Start Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="start-date"
+                        variant="outline"
+                        className="w-[140px] justify-start text-left font-normal border border-border focus-visible:ring-ring focus-visible:border-ring h-9 px-3"
+                      >
+                        {startDate ? format(startDate, "MM/dd/yyyy") : "Select date"}
+                        <CalendarIcon className="ml-auto h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        mode="single"
+                        selected={startDate}
+                        onSelect={setStartDate}
+                        captionLayout="dropdown"
+                        fromYear={new Date().getFullYear() - 10}
+                        toYear={new Date().getFullYear() + 10}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="flex flex-col">
+                  <Label htmlFor="end-date" className="text-sm font-medium text-foreground mb-1">End Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="end-date"
+                        variant="outline"
+                        className="w-[140px] justify-start text-left font-normal border border-border focus-visible:ring-ring focus-visible:border-ring h-9 px-3"
+                      >
+                        {endDate ? format(endDate, "MM/dd/yyyy") : "Select date"}
+                        <CalendarIcon className="ml-auto h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        mode="single"
+                        selected={endDate}
+                        onSelect={setEndDate}
+                        captionLayout="dropdown"
+                        fromYear={new Date().getFullYear() - 10}
+                        toYear={new Date().getFullYear() + 10}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const currentYear = new Date().getFullYear()
+                    setStartDate(new Date(currentYear - 1, 0, 1)) // January 1 of last year
+                    setEndDate(new Date(currentYear, 11, 31)) // December 31 of this year
+                    fetchStudents()
+                  }}
+                  disabled={isLoadingStudents}
+                  className="h-9 w-9 p-0"
+                  title={isLoadingStudents ? 'Refreshing...' : 'Refresh Data'}
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </Button>
+              </div>
             </div>
             <p className="text-slate-600 dark:text-slate-400">Track student enrollment, program capacity, and registration trends</p>
           </div>
@@ -391,12 +522,12 @@ export default function EnrollmentPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">New Enrollments</CardTitle>
+                <CardTitle className="text-sm font-medium">Students Added This Year</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{newEnrollments}</div>
-                <p className="text-xs text-muted-foreground">Students added this month</p>
+                <p className="text-xs text-muted-foreground">Students added this year</p>
               </CardContent>
             </Card>
 

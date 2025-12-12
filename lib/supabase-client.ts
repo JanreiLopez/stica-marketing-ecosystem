@@ -19,14 +19,5 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createBrowserClient(supabaseUrl ?? "", supabaseAnonKey ?? "")
 
-// Helper function to get current user
-export const getCurrentUser = async () => {
-  const { data: { user } } = await supabase.auth.getUser()
-  return user
-}
-
 // Helper function to sign out
-export const signOut = async () => {
-  const { error } = await supabase.auth.signOut()
-  return error
-}
+export const signOut = async () => supabase.auth.signOut()
