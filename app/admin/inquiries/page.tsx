@@ -58,7 +58,7 @@ const INITIAL_FORM_DATA = {
   othersSpecify: "",
 }
 
-const STATUS_OPTIONS = ["For follow up", "Reserved (Registrants with 1000 payment)", "Enrolled (Full down payment)", "Enrolled to other STI", "Enroll to other school", "Undecided"]
+const STATUS_OPTIONS = ["For follow up", "Reserved (Registrants with 1000 payment)", "Enrolled (Full down payment)", "Enrolled to other STI", "Enrolled to other school", "Undecided"]
 
 type InquiryRecord = {
   id: number
@@ -72,6 +72,7 @@ type InquiryRecord = {
   notes: string
   dateAdded: string
   adminName: string
+  inquiryType?: string
 }
 
 const normalizeStudentType = (value?: string | null) => {
@@ -80,6 +81,39 @@ const normalizeStudentType = (value?: string | null) => {
   if (normalized.includes("senior")) return "Senior High"
   if (normalized.includes("high")) return "Senior High"
   return "College"
+}
+
+// Helper function to parse program string, handling commas within program names
+const parseProgramString = (programString: string): string[] => {
+  if (!programString || programString === "Not specified") {
+    return ["Not specified"]
+  }
+  
+  // Known program names that contain commas
+  const programNamesWithCommas = [
+    "Accountancy, Business, and Management (ABM)",
+    "Humanities and Social Sciences (HUMMS)"
+  ]
+  
+  const programs: string[] = []
+  let remainingString = programString
+  
+  // First, extract program names that contain commas
+  for (const specialProgram of programNamesWithCommas) {
+    if (remainingString.includes(specialProgram)) {
+      programs.push(specialProgram)
+      // Remove the found program and clean up surrounding commas
+      remainingString = remainingString.replace(specialProgram, "").replace(/^,\s*|,\s*$/g, "").trim()
+    }
+  }
+  
+  // Then split the remaining string by commas
+  if (remainingString) {
+    const remainingPrograms = remainingString.split(/, |,/).filter(p => p.trim())
+    programs.push(...remainingPrograms)
+  }
+  
+  return programs.length > 0 ? programs : ["Not specified"]
 }
 
 const mapRowToInquiry = (row: Record<string, any>): InquiryRecord => {
@@ -102,6 +136,7 @@ const mapRowToInquiry = (row: Record<string, any>): InquiryRecord => {
     notes: row.notes ?? "",
     dateAdded: formatDate(row.date_added ?? row.created_at),
     adminName: row.admin_name ?? "Unknown Admin",
+    inquiryType: row.inquiry_type ?? "",
   }
   console.log("Mapped inquiry result:", result)
   return result
@@ -113,6 +148,7 @@ export default function InquiriesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [studentTypeFilter, setStudentTypeFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [inquiryTypeFilter, setInquiryTypeFilter] = useState("all")
   const [editingInquiryId, setEditingInquiryId] = useState<number | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [updateMessage, setUpdateMessage] = useState("")
@@ -264,7 +300,7 @@ export default function InquiriesPage() {
 
   // Filter marketing activities based on present school and inquiry date
   useEffect(() => {
-    if (!inquiryFormData.presentSchool || !inquiryDate) {
+    if (!inquiryFormData.presentSchool) {
       setMarketingActivities([])
       return
     }
@@ -272,22 +308,134 @@ export default function InquiriesPage() {
     // Find the selected school
     const selectedSchool = schools.find(s => s.name === inquiryFormData.presentSchool)
     
-    // If school is a feeder school, filter activities by school and date
+    console.log('Filtering marketing activities:', {
+      presentSchool: inquiryFormData.presentSchool,
+      inquiryDate,
+      selectedSchool,
+      allMarketingActivitiesCount: allMarketingActivities.length,
+      allMarketingActivities: allMarketingActivities.map(a => ({ 
+        id: a.id, 
+        title: a.title, 
+        school: a.school, 
+        date: a.date 
+      })),
+      schoolsList: schools.map(s => ({ name: s.name, type: s.type }))
+    })
+    
+    // If school is a feeder school, filter activities by school and show only events that happened before or on the inquiry date
     if (selectedSchool && selectedSchool.type === 'feeder') {
       const filtered = allMarketingActivities.filter((activity: any) => {
-        const activitySchool = activity.school || ''
+        const activitySchool = (activity.school || '').trim()
+        const selectedSchoolName = (selectedSchool.name || '').trim()
         const activityDate = activity.date || ''
         
-        // Normalize dates for comparison (both should be YYYY-MM-DD format)
-        const normalizedInquiryDate = inquiryDate.split('T')[0] // Remove time if present
-        const normalizedActivityDate = activityDate.split('T')[0] // Remove time if present
+        // Match school name (case-insensitive, trimmed, and handle partial matches)
+        // First try exact match
+        let schoolMatch = activitySchool.toLowerCase() === selectedSchoolName.toLowerCase()
         
-        // Match school name and date
-        return activitySchool === selectedSchool.name && normalizedActivityDate === normalizedInquiryDate
+        // If no exact match, try partial match (activity school contains selected school or vice versa)
+        if (!schoolMatch && activitySchool && selectedSchoolName) {
+          const activitySchoolLower = activitySchool.toLowerCase()
+          const selectedSchoolLower = selectedSchoolName.toLowerCase()
+          schoolMatch = activitySchoolLower.includes(selectedSchoolLower) || selectedSchoolLower.includes(activitySchoolLower)
+        }
+        
+        // Also show activities with no school assigned (empty or null school)
+        if (!schoolMatch && (!activitySchool || activitySchool === '')) {
+          schoolMatch = true
+          console.log('Activity has no school assigned, showing for all feeder schools:', {
+            activityTitle: activity.title,
+            activityDate: activity.date
+          })
+        }
+        
+        if (!schoolMatch) {
+          console.log('School name mismatch (filtered out):', {
+            activityTitle: activity.title,
+            activitySchool,
+            selectedSchoolName,
+            activityDate: activity.date
+          })
+          return false
+        }
+        
+        console.log('School name matched:', {
+          activityTitle: activity.title,
+          activitySchool: activitySchool || '(no school)',
+          selectedSchoolName
+        })
+        
+        // If inquiry date is set, only show activities that happened on or before the inquiry date
+        if (inquiryDate) {
+          const normalizedInquiryDate = inquiryDate.split('T')[0]
+          const normalizedActivityDate = activityDate.split('T')[0]
+          
+          // Compare dates - activity date should be <= inquiry date
+          const inquiryDateObj = new Date(normalizedInquiryDate)
+          const activityDateObj = new Date(normalizedActivityDate)
+          
+          // Set time to midnight for accurate date comparison
+          inquiryDateObj.setHours(0, 0, 0, 0)
+          activityDateObj.setHours(0, 0, 0, 0)
+          
+          const isBeforeOrOnInquiryDate = activityDateObj <= inquiryDateObj
+          
+          if (isBeforeOrOnInquiryDate) {
+            console.log('Found matching activity (before/on inquiry date):', {
+              activityTitle: activity.title,
+              activitySchool: activitySchool,
+              selectedSchoolName: selectedSchoolName,
+              activityDate: normalizedActivityDate,
+              inquiryDate: normalizedInquiryDate
+            })
+          } else {
+            console.log('Activity is after inquiry date (filtered out):', {
+              activityTitle: activity.title,
+              activityDate: normalizedActivityDate,
+              inquiryDate: normalizedInquiryDate
+            })
+          }
+          
+          return isBeforeOrOnInquiryDate
+        }
+        
+        // If no inquiry date set, show all activities for this school
+        console.log('Found matching activity (no inquiry date filter):', {
+          activityTitle: activity.title,
+          activitySchool: activitySchool,
+          selectedSchoolName: selectedSchoolName,
+          activityDate: activity.date
+        })
+        
+        return true
       })
+      
+      console.log('Filtered marketing activities result:', {
+        filteredCount: filtered.length,
+        activities: filtered.map(a => ({ 
+          id: a.id, 
+          title: a.title, 
+          school: a.school, 
+          date: a.date 
+        })),
+        presentSchool: inquiryFormData.presentSchool,
+        inquiryDate
+      })
+      
       setMarketingActivities(filtered)
     } else {
       // For non-feeder schools, show no activities
+      if (selectedSchool) {
+        console.log('School is not a feeder school:', {
+          schoolName: selectedSchool.name,
+          schoolType: selectedSchool.type
+        })
+      } else {
+        console.log('School not found in schools list:', {
+          searchedName: inquiryFormData.presentSchool,
+          availableSchools: schools.map(s => s.name)
+        })
+      }
       setMarketingActivities([])
     }
   }, [inquiryFormData.presentSchool, inquiryDate, schools, allMarketingActivities])
@@ -497,34 +645,67 @@ export default function InquiriesPage() {
 
     // Check for duplicate email or phone number (excluding current inquiry)
     try {
-      const { data: existingInquiries, error: checkError } = await supabase
+      const trimmedEmail = inquiryFormData.email.trim().toLowerCase()
+      
+      // First, get the current inquiry's email to compare
+      const { data: currentInquiry, error: currentError } = await supabase
         .from("inquiries")
         .select("id, email, phone")
-        .or(`email.eq.${inquiryFormData.email.trim()},phone.eq.${updatePhoneDigits}`)
-        .neq("id", editingInquiryId)
+        .eq("id", editingInquiryId)
+        .single()
 
-      if (checkError) {
-        console.error("Error checking for duplicates:", checkError)
-      } else if (existingInquiries && existingInquiries.length > 0) {
-        const duplicateEmail = existingInquiries.find(inq => inq.email?.toLowerCase() === inquiryFormData.email.trim().toLowerCase())
-        const duplicatePhone = existingInquiries.find(inq => {
-          const existingPhoneDigits = (inq.phone || '').replace(/\D/g, '')
-          return existingPhoneDigits === updatePhoneDigits
-        })
+      if (currentError) {
+        console.error("Error fetching current inquiry:", currentError)
+      }
 
-        if (duplicateEmail) {
-          const errorMsg = "This email already exists."
-          setInquiryError(errorMsg)
-          toast.error(errorMsg)
-          setIsUpdating(false)
-          return
-        }
-        if (duplicatePhone) {
-          const errorMsg = "This number already exists."
-          setInquiryError(errorMsg)
-          toast.error(errorMsg)
-          setIsUpdating(false)
-          return
+      // Check if email/phone changed - if not, skip duplicate check
+      const currentEmail = currentInquiry?.email?.trim().toLowerCase() || ''
+      const currentPhone = (currentInquiry?.phone || '').replace(/\D/g, '')
+      
+      const emailChanged = currentEmail !== trimmedEmail
+      const phoneChanged = currentPhone !== updatePhoneDigits
+
+      // Only check for duplicates if email or phone actually changed
+      if (emailChanged || phoneChanged) {
+        const { data: existingInquiries, error: checkError } = await supabase
+          .from("inquiries")
+          .select("id, email, phone")
+          .neq("id", editingInquiryId)
+
+        if (checkError) {
+          console.error("Error checking for duplicates:", checkError)
+        } else if (existingInquiries && existingInquiries.length > 0) {
+          // Check for duplicate email (case-insensitive)
+          if (emailChanged) {
+            const duplicateEmail = existingInquiries.find(inq => {
+              const existingEmail = (inq.email || '').trim().toLowerCase()
+              return existingEmail === trimmedEmail && existingEmail !== ''
+            })
+
+            if (duplicateEmail) {
+              const errorMsg = "This email already exists."
+              setInquiryError(errorMsg)
+              toast.error(errorMsg)
+              setIsUpdating(false)
+              return
+            }
+          }
+
+          // Check for duplicate phone
+          if (phoneChanged) {
+            const duplicatePhone = existingInquiries.find(inq => {
+              const existingPhoneDigits = (inq.phone || '').replace(/\D/g, '')
+              return existingPhoneDigits === updatePhoneDigits && existingPhoneDigits.length === 11
+            })
+
+            if (duplicatePhone) {
+              const errorMsg = "This number already exists."
+              setInquiryError(errorMsg)
+              toast.error(errorMsg)
+              setIsUpdating(false)
+              return
+            }
+          }
         }
       }
     } catch (error) {
@@ -642,7 +823,8 @@ export default function InquiriesPage() {
       inquiry.program.toLowerCase().includes(searchLower)
     const matchesStudentType = studentTypeFilter === "all" || inquiry.studentType.toLowerCase() === studentTypeFilter
     const matchesStatus = statusFilter === "all" || inquiry.status === statusFilter
-    const result = matchesSearch && matchesStudentType && matchesStatus
+    const matchesInquiryType = inquiryTypeFilter === "all" || (inquiry.inquiryType || "") === inquiryTypeFilter
+    const result = matchesSearch && matchesStudentType && matchesStatus && matchesInquiryType
     return result
   })
   console.log("Filtered inquiries count:", filteredInquiries.length)
@@ -675,7 +857,7 @@ export default function InquiriesPage() {
         return "success"
       case "Enrolled to other STI":
         return "destructive"
-      case "Enroll to other school":
+      case "Enrolled to other school":
         return "destructive"
       case "Undecided":
         return "outline"
@@ -1100,6 +1282,53 @@ export default function InquiriesPage() {
   // Calculate total inquiries today
   const todayInquiriesCount = todayInquiries.length
 
+  // Calculate online and walk-in inquiry counts
+  const [onlineCount, setOnlineCount] = useState<number>(0)
+  const [walkInCount, setWalkInCount] = useState<number>(0)
+
+  // Convert dates to strings for stable dependency array
+  const startDateString = startDate ? format(startDate, 'yyyy-MM-dd') : null
+  const endDateString = endDate ? format(endDate, 'yyyy-MM-dd') : null
+
+  useEffect(() => {
+    const fetchInquiryTypeCounts = async () => {
+      try {
+        // Apply date filters if they exist
+        let query = supabase
+          .from("inquiries")
+          .select("inquiry_type")
+
+        if (startDate) {
+          const startDateTime = format(startDate, 'yyyy-MM-dd') + 'T00:00:00.000Z'
+          query = query.gte('created_at', startDateTime)
+        }
+        
+        if (endDate) {
+          const endDateTime = format(endDate, 'yyyy-MM-dd') + 'T23:59:59.999Z'
+          query = query.lte('created_at', endDateTime)
+        }
+
+        const { data, error } = await query
+
+        if (error) {
+          console.error("Error fetching inquiry types:", error)
+          return
+        }
+
+        if (data) {
+          const online = data.filter(inq => inq.inquiry_type === "online").length
+          const walkIn = data.filter(inq => inq.inquiry_type === "walk-in").length
+          setOnlineCount(online)
+          setWalkInCount(walkIn)
+        }
+      } catch (error) {
+        console.error("Error calculating inquiry type counts:", error)
+      }
+    }
+
+    fetchInquiryTypeCounts()
+  }, [inquiries.length, startDateString, endDateString]) // Use string dates for stable dependencies
+
   // Calculate percentage change from last month
   const calculateMonthChange = () => {
     const today = new Date()
@@ -1149,7 +1378,7 @@ export default function InquiriesPage() {
                       <Button
                         id="start-date"
                         variant="outline"
-                        className="w-[140px] justify-start text-left font-normal border border-border focus-visible:ring-ring focus-visible:border-ring h-9 px-3"
+                        className="w-[140px] justify-start text-left font-normal border border-border focus-visible:ring-0 focus-visible:border-gray-400 h-9 px-3"
                       >
                         {startDate ? format(startDate, "MM/dd/yyyy") : "Select date"}
                         <CalendarIcon className="ml-auto h-4 w-4 text-muted-foreground" />
@@ -1175,7 +1404,7 @@ export default function InquiriesPage() {
                       <Button
                         id="end-date"
                         variant="outline"
-                        className="w-[140px] justify-start text-left font-normal border border-border focus-visible:ring-ring focus-visible:border-ring h-9 px-3"
+                        className="w-[140px] justify-start text-left font-normal border border-border focus-visible:ring-0 focus-visible:border-gray-400 h-9 px-3"
                       >
                         {endDate ? format(endDate, "MM/dd/yyyy") : "Select date"}
                         <CalendarIcon className="ml-auto h-4 w-4 text-muted-foreground" />
@@ -1218,16 +1447,16 @@ export default function InquiriesPage() {
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
             <KpiCard
-              title="Total Inquiries"
-              value={inquiries.length}
+              title="Total Walk-in"
+              value={walkInCount}
               change={`${monthChange} from last month`}
               icon={MessageSquare}
             />
 
             <KpiCard
-              title="Total Inquiries Today"
-              value={todayInquiriesCount}
-              change={`${todayInquiriesCount} new today`}
+              title="Total Online"
+              value={onlineCount}
+              change={`${onlineCount} online inquiries`}
               icon={GraduationCap}
             />
 
@@ -1250,9 +1479,9 @@ export default function InquiriesPage() {
           <Card className="shadow-lg border-border">
             <CardContent className="p-6">
               {/* Search and Filters inside table */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="relative w-72">
+          <div className="flex items-center justify-between mb-6 gap-4">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="relative w-56 flex-shrink-0">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search inquiries..."
@@ -1261,27 +1490,37 @@ export default function InquiriesPage() {
                   className="pl-10"
                 />
               </div>
-              <Select value={studentTypeFilter} onValueChange={setStudentTypeFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by student type" />
+              <Select value={inquiryTypeFilter} onValueChange={setInquiryTypeFilter}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="Inquiry Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Student Types</SelectItem>
-                  <SelectItem value="college">College</SelectItem>
-                  <SelectItem value="senior high">Senior High</SelectItem>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="online">Online</SelectItem>
+                  <SelectItem value="walk-in">Walk-in</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-36">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Status</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   {STATUS_OPTIONS.map((status) => (
                     <SelectItem key={status} value={status}>
                       {status}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+              <Select value={studentTypeFilter} onValueChange={setStudentTypeFilter}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="Student Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Student Types</SelectItem>
+                  <SelectItem value="college">College</SelectItem>
+                  <SelectItem value="senior high">Senior High</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1299,6 +1538,7 @@ export default function InquiriesPage() {
                     onClick={() => {
                       resetForm()
                       setEditingInquiryId(null)
+                      setInquiryDate(new Date().toISOString().split("T")[0]) // Ensure today's date is set
                       setIsInquiryDialogOpen(true)
                     }}
             >
@@ -1348,7 +1588,7 @@ export default function InquiriesPage() {
                           <TableHead className="font-semibold text-foreground">Status</TableHead>
                           <TableHead className="font-semibold text-foreground">Type of Student</TableHead>
                           <TableHead className="font-semibold text-foreground">Date</TableHead>
-                          <TableHead className="font-semibold text-foreground text-right">Actions</TableHead>
+                          <TableHead className="font-semibold text-foreground text-right w-[120px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1402,7 +1642,7 @@ export default function InquiriesPage() {
                               </TableCell>
                               <TableCell className="py-4">
                                 {(() => {
-                                  const programs = (inquiry.program || "Not specified").split(/, |,/).filter(p => p.trim())
+                                  const programs = parseProgramString(inquiry.program || "Not specified")
                                   const firstTwo = programs.slice(0, 2)
                                   const remaining = programs.slice(2)
                                   
@@ -1455,7 +1695,7 @@ export default function InquiriesPage() {
                                     <Badge className="bg-green-600 text-white border-green-600">{inquiry.status}</Badge>
                                   ) : inquiry.status === "Enrolled to other STI" ? (
                                     <Badge className="bg-red-500 text-white border-red-500">{inquiry.status}</Badge>
-                                  ) : inquiry.status === "Enroll to other school" ? (
+                                  ) : inquiry.status === "Enrolled to other school" ? (
                                     <Badge className="bg-red-500 text-white border-red-500">{inquiry.status}</Badge>
                                   ) : (
                                     <Badge variant={getStatusColor(inquiry.status) as any}>{inquiry.status}</Badge>
@@ -1471,11 +1711,11 @@ export default function InquiriesPage() {
                                 {inquiry.date}
                               </TableCell>
                               <TableCell className="py-4 text-right">
-                                <div className="flex items-center justify-end gap-1">
+                                <div className="flex items-center justify-end gap-1 w-full">
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
-                                    className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                                    className="h-8 w-8 p-0 shrink-0 hover:bg-primary/10 hover:text-primary"
                                     onClick={async () => {
                                       setViewingInquiry(inquiry)
                                       // Fetch full inquiry data to get inquiry_type and how_did_you_find_out
@@ -1500,7 +1740,7 @@ export default function InquiriesPage() {
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
-                                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                                    className="h-8 w-8 p-0 shrink-0 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
                                     onClick={() => setDeletingInquiryId(inquiry.id)}
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -1528,7 +1768,7 @@ export default function InquiriesPage() {
                           <TableHead className="font-semibold text-foreground">Status</TableHead>
                           <TableHead className="font-semibold text-foreground">Type of Student</TableHead>
                           <TableHead className="font-semibold text-foreground">Date</TableHead>
-                          <TableHead className="font-semibold text-foreground text-right">Actions</TableHead>
+                          <TableHead className="font-semibold text-foreground text-right w-[120px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1582,7 +1822,7 @@ export default function InquiriesPage() {
                               </TableCell>
                               <TableCell className="py-4">
                                 {(() => {
-                                  const programs = (inquiry.program || "Not specified").split(/, |,/).filter(p => p.trim())
+                                  const programs = parseProgramString(inquiry.program || "Not specified")
                                   const firstTwo = programs.slice(0, 2)
                                   const remaining = programs.slice(2)
                                   
@@ -1635,7 +1875,7 @@ export default function InquiriesPage() {
                                     <Badge className="bg-green-600 text-white border-green-600">{inquiry.status}</Badge>
                                   ) : inquiry.status === "Enrolled to other STI" ? (
                                     <Badge className="bg-red-500 text-white border-red-500">{inquiry.status}</Badge>
-                                  ) : inquiry.status === "Enroll to other school" ? (
+                                  ) : inquiry.status === "Enrolled to other school" ? (
                                     <Badge className="bg-red-500 text-white border-red-500">{inquiry.status}</Badge>
                                   ) : (
                                     <Badge variant={getStatusColor(inquiry.status) as any}>{inquiry.status}</Badge>
@@ -1651,11 +1891,11 @@ export default function InquiriesPage() {
                                 {inquiry.date}
                               </TableCell>
                               <TableCell className="py-4 text-right">
-                                <div className="flex items-center justify-end gap-1">
+                                <div className="flex items-center justify-end gap-1 w-full">
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
-                                    className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                                    className="h-8 w-8 p-0 shrink-0 hover:bg-primary/10 hover:text-primary"
                                     onClick={async () => {
                                       setViewingInquiry(inquiry)
                                       // Fetch full inquiry data to get inquiry_type and how_did_you_find_out
@@ -1680,7 +1920,7 @@ export default function InquiriesPage() {
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
-                                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                                    className="h-8 w-8 p-0 shrink-0 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
                                     onClick={() => setDeletingInquiryId(inquiry.id)}
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -1708,7 +1948,7 @@ export default function InquiriesPage() {
                           <TableHead className="font-semibold text-foreground">Status</TableHead>
                           <TableHead className="font-semibold text-foreground">Type of Student</TableHead>
                           <TableHead className="font-semibold text-foreground">Date</TableHead>
-                          <TableHead className="font-semibold text-foreground text-right">Actions</TableHead>
+                          <TableHead className="font-semibold text-foreground text-right w-[120px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1762,7 +2002,7 @@ export default function InquiriesPage() {
                               </TableCell>
                               <TableCell className="py-4">
                                 {(() => {
-                                  const programs = (inquiry.program || "Not specified").split(/, |,/).filter(p => p.trim())
+                                  const programs = parseProgramString(inquiry.program || "Not specified")
                                   const firstTwo = programs.slice(0, 2)
                                   const remaining = programs.slice(2)
                                   
@@ -1815,7 +2055,7 @@ export default function InquiriesPage() {
                                     <Badge className="bg-green-600 text-white border-green-600">{inquiry.status}</Badge>
                                   ) : inquiry.status === "Enrolled to other STI" ? (
                                     <Badge className="bg-red-500 text-white border-red-500">{inquiry.status}</Badge>
-                                  ) : inquiry.status === "Enroll to other school" ? (
+                                  ) : inquiry.status === "Enrolled to other school" ? (
                                     <Badge className="bg-red-500 text-white border-red-500">{inquiry.status}</Badge>
                                   ) : (
                                     <Badge variant={getStatusColor(inquiry.status) as any}>{inquiry.status}</Badge>
@@ -1831,11 +2071,11 @@ export default function InquiriesPage() {
                                 {inquiry.date}
                               </TableCell>
                               <TableCell className="py-4 text-right">
-                                <div className="flex items-center justify-end gap-1">
+                                <div className="flex items-center justify-end gap-1 w-full">
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
-                                    className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                                    className="h-8 w-8 p-0 shrink-0 hover:bg-primary/10 hover:text-primary"
                                     onClick={async () => {
                                       setViewingInquiry(inquiry)
                                       // Fetch full inquiry data to get inquiry_type and how_did_you_find_out
@@ -1860,7 +2100,7 @@ export default function InquiriesPage() {
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
-                                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                                    className="h-8 w-8 p-0 shrink-0 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
                                     onClick={() => setDeletingInquiryId(inquiry.id)}
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -1888,7 +2128,7 @@ export default function InquiriesPage() {
                           <TableHead className="font-semibold text-foreground">Status</TableHead>
                           <TableHead className="font-semibold text-foreground">Type of Student</TableHead>
                           <TableHead className="font-semibold text-foreground">Date</TableHead>
-                          <TableHead className="font-semibold text-foreground text-right">Actions</TableHead>
+                          <TableHead className="font-semibold text-foreground text-right w-[120px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1942,7 +2182,7 @@ export default function InquiriesPage() {
                               </TableCell>
                               <TableCell className="py-4">
                                 {(() => {
-                                  const programs = (inquiry.program || "Not specified").split(/, |,/).filter(p => p.trim())
+                                  const programs = parseProgramString(inquiry.program || "Not specified")
                                   const firstTwo = programs.slice(0, 2)
                                   const remaining = programs.slice(2)
                                   
@@ -1995,7 +2235,7 @@ export default function InquiriesPage() {
                                     <Badge className="bg-green-600 text-white border-green-600">{inquiry.status}</Badge>
                                   ) : inquiry.status === "Enrolled to other STI" ? (
                                     <Badge className="bg-red-500 text-white border-red-500">{inquiry.status}</Badge>
-                                  ) : inquiry.status === "Enroll to other school" ? (
+                                  ) : inquiry.status === "Enrolled to other school" ? (
                                     <Badge className="bg-red-500 text-white border-red-500">{inquiry.status}</Badge>
                                   ) : (
                                     <Badge variant={getStatusColor(inquiry.status) as any}>{inquiry.status}</Badge>
@@ -2011,11 +2251,11 @@ export default function InquiriesPage() {
                                 {inquiry.date}
                               </TableCell>
                               <TableCell className="py-4 text-right">
-                                <div className="flex items-center justify-end gap-1">
+                                <div className="flex items-center justify-end gap-1 w-full">
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
-                                    className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                                    className="h-8 w-8 p-0 shrink-0 hover:bg-primary/10 hover:text-primary"
                                     onClick={async () => {
                                       setViewingInquiry(inquiry)
                                       // Fetch full inquiry data to get inquiry_type and how_did_you_find_out
@@ -2040,7 +2280,7 @@ export default function InquiriesPage() {
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
-                                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                                    className="h-8 w-8 p-0 shrink-0 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
                                     onClick={() => setDeletingInquiryId(inquiry.id)}
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -2066,12 +2306,15 @@ export default function InquiriesPage() {
             resetForm()
             setEditingInquiryId(null)
             setInquiryError("")
+          } else if (!editingInquiryId) {
+            // When opening for new inquiry, ensure date is set to today
+            setInquiryDate(new Date().toISOString().split("T")[0])
           }
         }}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingInquiryId ? "Edit Inquiry" : "Program Inquiry"}</DialogTitle>
-              <DialogDescription>
+          <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
+            <DialogHeader className="pb-4 border-b">
+              <DialogTitle className="text-2xl">{editingInquiryId ? "Edit Inquiry" : "Program Inquiry"}</DialogTitle>
+              <DialogDescription className="text-base mt-2">
                 {editingInquiryId ? "Update the inquiry information" : "Tell us about your educational goals and interests"}
               </DialogDescription>
             </DialogHeader>
@@ -2086,10 +2329,10 @@ export default function InquiriesPage() {
             <div className="space-y-6">
               {/* Type of Inquiry and Type of Student */}
               <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold text-foreground uppercase">TYPE OF INQUIRY</Label>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
+                <Card className="p-4">
+                  <Label className="text-sm font-semibold text-foreground uppercase mb-4 block">TYPE OF INQUIRY</Label>
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
                       <input
                         type="radio"
                         id="inquiry-online"
@@ -2097,11 +2340,11 @@ export default function InquiriesPage() {
                         value="online"
                         checked={inquiryFormData.inquiryType === "online"}
                         onChange={(e) => setInquiryFormData(prev => ({ ...prev, inquiryType: e.target.value }))}
-                        className="w-4 h-4 border border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className="w-4 h-4 border-2 border-gray-300 focus:border-gray-400 focus:ring-0"
                       />
-                      <Label htmlFor="inquiry-online" className="text-sm">Online</Label>
+                      <Label htmlFor="inquiry-online" className="text-sm font-medium cursor-pointer">Online</Label>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-3">
                       <input
                         type="radio"
                         id="inquiry-walk-in"
@@ -2109,17 +2352,17 @@ export default function InquiriesPage() {
                         value="walk-in"
                         checked={inquiryFormData.inquiryType === "walk-in"}
                         onChange={(e) => setInquiryFormData(prev => ({ ...prev, inquiryType: e.target.value }))}
-                        className="w-4 h-4 border border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className="w-4 h-4 border-2 border-gray-300 focus:border-gray-400 focus:ring-0"
                       />
-                      <Label htmlFor="inquiry-walk-in" className="text-sm">Walk-in</Label>
+                      <Label htmlFor="inquiry-walk-in" className="text-sm font-medium cursor-pointer">Walk-in</Label>
                     </div>
                   </div>
-                </div>
+                </Card>
                 
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold text-foreground uppercase">TYPE OF STUDENT</Label>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
+                <Card className="p-4">
+                  <Label className="text-sm font-semibold text-foreground uppercase mb-4 block">TYPE OF STUDENT</Label>
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
                       <input
                         type="radio"
                         id="inquiry-senior-high"
@@ -2127,11 +2370,11 @@ export default function InquiriesPage() {
                         value="senior-high"
                         checked={inquiryFormData.studentType === "senior-high"}
                         onChange={(e) => setInquiryFormData(prev => ({ ...prev, studentType: e.target.value }))}
-                        className="w-4 h-4 border border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className="w-4 h-4 border-2 border-gray-300 focus:border-gray-400 focus:ring-0"
                       />
-                      <Label htmlFor="inquiry-senior-high" className="text-sm">Senior High School</Label>
+                      <Label htmlFor="inquiry-senior-high" className="text-sm font-medium cursor-pointer">Senior High School</Label>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-3">
                       <input
                         type="radio"
                         id="inquiry-tertiary"
@@ -2139,17 +2382,17 @@ export default function InquiriesPage() {
                         value="tertiary"
                         checked={inquiryFormData.studentType === "tertiary"}
                         onChange={(e) => setInquiryFormData(prev => ({ ...prev, studentType: e.target.value }))}
-                        className="w-4 h-4 border border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className="w-4 h-4 border-2 border-gray-300 focus:border-gray-400 focus:ring-0"
                       />
-                      <Label htmlFor="inquiry-tertiary" className="text-sm">Tertiary</Label>
+                      <Label htmlFor="inquiry-tertiary" className="text-sm font-medium cursor-pointer">Tertiary</Label>
                     </div>
                   </div>
-                </div>
+                </Card>
               </div>
 
               {/* Personal Information Section */}
-              <div className="space-y-4">
-                <Label className="text-sm font-semibold text-foreground uppercase">PERSONAL INFORMATION</Label>
+              <Card className="p-6">
+                <Label className="text-sm font-semibold text-foreground uppercase mb-4 block">PERSONAL INFORMATION</Label>
                 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -2163,7 +2406,7 @@ export default function InquiriesPage() {
                         const value = e.target.value.replace(/[^a-zA-Z\s.]/g, '')
                         setInquiryFormData(prev => ({ ...prev, firstName: value }))
                       }}
-                      className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                      className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                     />
                   </div>
                   <div className="space-y-2">
@@ -2177,7 +2420,7 @@ export default function InquiriesPage() {
                         const value = e.target.value.replace(/[^a-zA-Z\s.]/g, '')
                         setInquiryFormData(prev => ({ ...prev, lastName: value }))
                       }}
-                      className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                      className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                     />
                   </div>
                 </div>
@@ -2191,7 +2434,7 @@ export default function InquiriesPage() {
                         role="combobox"
                         aria-expanded={schoolPopoverOpen}
                         className={cn(
-                          "w-full justify-between border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500",
+                          "w-full justify-between border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400",
                           !inquiryFormData.presentSchool && "text-muted-foreground"
                         )}
                       >
@@ -2235,16 +2478,37 @@ export default function InquiriesPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="inquiry-date">Inquiry Date</Label>
-                  <Input 
-                    id="inquiry-date" 
-                    type="date"
-                    value={inquiryDate ?? ""}
-                    onChange={(e) => {
-                      setInquiryDate(e.target.value)
-                    }}
-                    className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
-                  />
+                  <Label htmlFor="inquiry-date" className="text-sm font-medium">Inquiry Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="inquiry-date"
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400 h-10",
+                          !inquiryDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {inquiryDate ? format(new Date(inquiryDate), "MM/dd/yyyy") : "Select inquiry date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={inquiryDate ? new Date(inquiryDate) : undefined}
+                        onSelect={(date) => {
+                          if (date) {
+                            setInquiryDate(date.toISOString().split('T')[0])
+                          }
+                        }}
+                        captionLayout="dropdown"
+                        fromYear={new Date().getFullYear() - 5}
+                        toYear={new Date().getFullYear() + 1}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <div className="space-y-2">
@@ -2266,7 +2530,7 @@ export default function InquiriesPage() {
                       value = value.replace(/[^a-zA-Z0-9._+-@]/g, '')
                       setInquiryFormData(prev => ({ ...prev, email: value }))
                     }}
-                    className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                    className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                   />
                 </div>
 
@@ -2283,14 +2547,14 @@ export default function InquiriesPage() {
                       setInquiryFormData(prev => ({ ...prev, phone: digits }))
                     }}
                     maxLength={11}
-                    className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                    className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                   />
                 </div>
-              </div>
+              </Card>
 
               {/* Programs of Interest */}
-              <div className="space-y-4">
-                <Label className="text-sm font-semibold text-foreground uppercase">PROGRAMS OF INTEREST</Label>
+              <Card className="p-6">
+                <Label className="text-sm font-semibold text-foreground uppercase mb-4 block">PROGRAMS OF INTEREST</Label>
                 
                 {inquiryFormData.studentType === "tertiary" && (
                   <div className="space-y-3">
@@ -2301,7 +2565,7 @@ export default function InquiriesPage() {
                           id="inquiry-bsit" 
                           checked={inquiryFormData.programs.includes('bsit')}
                           onCheckedChange={(checked) => handleArrayChange('programs', 'bsit', checked as boolean)}
-                          className="border border-gray-400"
+                          className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                         />
                         <Label htmlFor="inquiry-bsit" className="text-sm">
                           BS Information Technology (BSIT)
@@ -2312,7 +2576,7 @@ export default function InquiriesPage() {
                           id="inquiry-bscs" 
                           checked={inquiryFormData.programs.includes('bscs')}
                           onCheckedChange={(checked) => handleArrayChange('programs', 'bscs', checked as boolean)}
-                          className="border border-gray-400"
+                          className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                         />
                         <Label htmlFor="inquiry-bscs" className="text-sm">
                           BS Computer Science (BSCS)
@@ -2323,7 +2587,7 @@ export default function InquiriesPage() {
                           id="inquiry-bshm" 
                           checked={inquiryFormData.programs.includes('bshm')}
                           onCheckedChange={(checked) => handleArrayChange('programs', 'bshm', checked as boolean)}
-                          className="border border-gray-400"
+                          className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                         />
                         <Label htmlFor="inquiry-bshm" className="text-sm">
                           BS Hospitality Management (BSHM)
@@ -2334,7 +2598,7 @@ export default function InquiriesPage() {
                           id="inquiry-bstm" 
                           checked={inquiryFormData.programs.includes('bstm')}
                           onCheckedChange={(checked) => handleArrayChange('programs', 'bstm', checked as boolean)}
-                          className="border border-gray-400"
+                          className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                         />
                         <Label htmlFor="inquiry-bstm" className="text-sm">
                           BS Tourism Management (BSTM)
@@ -2345,7 +2609,7 @@ export default function InquiriesPage() {
                           id="inquiry-bsba" 
                           checked={inquiryFormData.programs.includes('bsba')}
                           onCheckedChange={(checked) => handleArrayChange('programs', 'bsba', checked as boolean)}
-                          className="border border-gray-400"
+                          className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                         />
                         <Label htmlFor="inquiry-bsba" className="text-sm">
                           BS Business Administration (BSBA)
@@ -2364,7 +2628,7 @@ export default function InquiriesPage() {
                           id="inquiry-it-mobile" 
                           checked={inquiryFormData.programs.includes('it-mobile')}
                           onCheckedChange={(checked) => handleArrayChange('programs', 'it-mobile', checked as boolean)}
-                          className="border border-gray-400"
+                          className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                         />
                         <Label htmlFor="inquiry-it-mobile" className="text-sm">
                           IT in Mobile App and Web Development
@@ -2375,7 +2639,7 @@ export default function InquiriesPage() {
                           id="inquiry-humms" 
                           checked={inquiryFormData.programs.includes('humms')}
                           onCheckedChange={(checked) => handleArrayChange('programs', 'humms', checked as boolean)}
-                          className="border border-gray-400"
+                          className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                         />
                         <Label htmlFor="inquiry-humms" className="text-sm">
                           Humanities and Social Sciences (HUMMS)
@@ -2386,7 +2650,7 @@ export default function InquiriesPage() {
                           id="inquiry-abm" 
                           checked={inquiryFormData.programs.includes('abm')}
                           onCheckedChange={(checked) => handleArrayChange('programs', 'abm', checked as boolean)}
-                          className="border border-gray-400"
+                          className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                         />
                         <Label htmlFor="inquiry-abm" className="text-sm">
                           Accountancy, Business, and Management (ABM)
@@ -2401,11 +2665,11 @@ export default function InquiriesPage() {
                     <p>Please select your student type above to see available programs.</p>
                   </div>
                 )}
-              </div>
+              </Card>
 
               {/* How Did You Find Out About STI Section */}
-              <div className="space-y-4">
-                <Label className="text-sm font-semibold text-foreground uppercase">HOW DID YOU FIND OUT ABOUT STI?</Label>
+              <Card className="p-6">
+                <Label className="text-sm font-semibold text-foreground uppercase mb-4 block">HOW DID YOU FIND OUT ABOUT STI?</Label>
                 
                 <div className="space-y-4">
                   {/* Main Options */}
@@ -2415,7 +2679,7 @@ export default function InquiriesPage() {
                         id="inquiry-tv" 
                         checked={inquiryFormData.howDidYouFindOut.includes('tv')}
                         onCheckedChange={(checked) => handleArrayChange('howDidYouFindOut', 'tv', checked as boolean)}
-                        className="border border-gray-400"
+                        className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                       />
                       <Label htmlFor="inquiry-tv" className="text-sm">TV</Label>
                     </div>
@@ -2425,7 +2689,7 @@ export default function InquiriesPage() {
                         id="inquiry-outdoor" 
                         checked={inquiryFormData.howDidYouFindOut.includes('outdoor')}
                         onCheckedChange={(checked) => handleArrayChange('howDidYouFindOut', 'outdoor', checked as boolean)}
-                        className="border border-gray-400"
+                        className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                       />
                       <Label htmlFor="inquiry-outdoor" className="text-sm">OUTDOOR (Billboard, Banners, Streamers)</Label>
                     </div>
@@ -2435,7 +2699,7 @@ export default function InquiriesPage() {
                         id="inquiry-radio" 
                         checked={inquiryFormData.howDidYouFindOut.includes('radio')}
                         onCheckedChange={(checked) => handleArrayChange('howDidYouFindOut', 'radio', checked as boolean)}
-                        className="border border-gray-400"
+                        className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                       />
                       <Label htmlFor="inquiry-radio" className="text-sm">RADIO</Label>
                     </div>
@@ -2445,7 +2709,7 @@ export default function InquiriesPage() {
                         id="inquiry-print" 
                         checked={inquiryFormData.howDidYouFindOut.includes('print')}
                         onCheckedChange={(checked) => handleArrayChange('howDidYouFindOut', 'print', checked as boolean)}
-                        className="border border-gray-400"
+                        className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                       />
                       <Label htmlFor="inquiry-print" className="text-sm">PRINT (Newspaper)</Label>
                     </div>
@@ -2455,7 +2719,7 @@ export default function InquiriesPage() {
                         id="inquiry-magazine" 
                         checked={inquiryFormData.howDidYouFindOut.includes('magazine')}
                         onCheckedChange={(checked) => handleArrayChange('howDidYouFindOut', 'magazine', checked as boolean)}
-                        className="border border-gray-400"
+                        className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                       />
                       <Label htmlFor="inquiry-magazine" className="text-sm">MAGAZINE/FLYERS</Label>
                     </div>
@@ -2468,7 +2732,7 @@ export default function InquiriesPage() {
                         id="inquiry-online-find" 
                         checked={inquiryFormData.howDidYouFindOut.includes('online')}
                         onCheckedChange={(checked) => handleArrayChange('howDidYouFindOut', 'online', checked as boolean)}
-                        className="border border-gray-400"
+                        className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                       />
                       <Label htmlFor="inquiry-online-find" className="text-sm font-semibold">ONLINE</Label>
                     </div>
@@ -2480,7 +2744,7 @@ export default function InquiriesPage() {
                             id="inquiry-website" 
                             checked={inquiryFormData.howDidYouFindOut.includes('website')}
                             onCheckedChange={(checked) => handleArrayChange('howDidYouFindOut', 'website', checked as boolean)}
-                            className="border border-gray-400"
+                            className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                           />
                           <Label htmlFor="inquiry-website" className="text-sm">Website</Label>
                         </div>
@@ -2490,7 +2754,7 @@ export default function InquiriesPage() {
                             id="inquiry-facebook" 
                             checked={inquiryFormData.howDidYouFindOut.includes('facebook')}
                             onCheckedChange={(checked) => handleArrayChange('howDidYouFindOut', 'facebook', checked as boolean)}
-                            className="border border-gray-400"
+                            className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                           />
                           <Label htmlFor="inquiry-facebook" className="text-sm">Facebook</Label>
                         </div>
@@ -2500,7 +2764,7 @@ export default function InquiriesPage() {
                             id="inquiry-others-online" 
                             checked={inquiryFormData.howDidYouFindOut.includes('others-online')}
                             onCheckedChange={(checked) => handleArrayChange('howDidYouFindOut', 'others-online', checked as boolean)}
-                            className="border border-gray-400"
+                            className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                           />
                           <Label htmlFor="inquiry-others-online" className="text-sm">Others</Label>
                         </div>
@@ -2515,7 +2779,7 @@ export default function InquiriesPage() {
                         id="inquiry-events" 
                         checked={inquiryFormData.howDidYouFindOut.includes('events')}
                         onCheckedChange={(checked) => handleArrayChange('howDidYouFindOut', 'events', checked as boolean)}
-                        className="border border-gray-400"
+                        className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                       />
                       <Label htmlFor="inquiry-events" className="text-sm">EVENTS</Label>
                     </div>
@@ -2529,7 +2793,7 @@ export default function InquiriesPage() {
                               role="combobox"
                               aria-expanded={eventsPopoverOpen}
                               className={cn(
-                                "w-full justify-between border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500",
+                                "w-full justify-between border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400",
                                 !inquiryFormData.eventsDescription && "text-muted-foreground"
                               )}
                               disabled={loadingActivities}
@@ -2551,9 +2815,16 @@ export default function InquiriesPage() {
                                 <CommandEmpty>
                                   {!inquiryFormData.presentSchool 
                                     ? "Please select a present school first"
-                                    : !inquiryDate
-                                    ? "Please select an inquiry date first"
-                                    : "No activity found for this school and date"}
+                                    : (() => {
+                                        const school = schools.find(s => s.name === inquiryFormData.presentSchool)
+                                        if (!school) {
+                                          return "School not found. Please check the school name."
+                                        }
+                                        if (school.type !== 'feeder') {
+                                          return "This school is not a feeder school. Only feeder schools have marketing events."
+                                        }
+                                        return "No marketing events found for this school. Make sure events are created for this school in the Marketing Activities page."
+                                      })()}
                                 </CommandEmpty>
                                 <CommandGroup>
                                   {marketingActivities.map((activity) => {
@@ -2602,7 +2873,7 @@ export default function InquiriesPage() {
                         id="inquiry-referral" 
                         checked={inquiryFormData.howDidYouFindOut.includes('referral')}
                         onCheckedChange={(checked) => handleArrayChange('howDidYouFindOut', 'referral', checked as boolean)}
-                        className="border border-gray-400"
+                        className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                       />
                       <Label htmlFor="inquiry-referral" className="text-sm font-semibold">REFERRAL</Label>
                     </div>
@@ -2615,7 +2886,7 @@ export default function InquiriesPage() {
                               id="inquiry-sti-students" 
                               checked={inquiryFormData.referralSource.includes('sti-students')}
                               onCheckedChange={(checked) => handleArrayChange('referralSource', 'sti-students', checked as boolean)}
-                              className="border border-gray-400"
+                              className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                             />
                             <Label htmlFor="inquiry-sti-students" className="text-sm">STI Students</Label>
                           </div>
@@ -2625,7 +2896,7 @@ export default function InquiriesPage() {
                               id="inquiry-sti-alumni" 
                               checked={inquiryFormData.referralSource.includes('sti-alumni')}
                               onCheckedChange={(checked) => handleArrayChange('referralSource', 'sti-alumni', checked as boolean)}
-                              className="border border-gray-400"
+                              className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                             />
                             <Label htmlFor="inquiry-sti-alumni" className="text-sm">STI Alumni</Label>
                           </div>
@@ -2635,7 +2906,7 @@ export default function InquiriesPage() {
                               id="inquiry-friends" 
                               checked={inquiryFormData.referralSource.includes('friends')}
                               onCheckedChange={(checked) => handleArrayChange('referralSource', 'friends', checked as boolean)}
-                              className="border border-gray-400"
+                              className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                             />
                             <Label htmlFor="inquiry-friends" className="text-sm">Friends</Label>
                           </div>
@@ -2645,7 +2916,7 @@ export default function InquiriesPage() {
                               id="inquiry-parents" 
                               checked={inquiryFormData.referralSource.includes('parents')}
                               onCheckedChange={(checked) => handleArrayChange('referralSource', 'parents', checked as boolean)}
-                              className="border border-gray-400"
+                              className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                             />
                             <Label htmlFor="inquiry-parents" className="text-sm">Parents</Label>
                           </div>
@@ -2655,7 +2926,7 @@ export default function InquiriesPage() {
                               id="inquiry-relatives" 
                               checked={inquiryFormData.referralSource.includes('relatives')}
                               onCheckedChange={(checked) => handleArrayChange('referralSource', 'relatives', checked as boolean)}
-                              className="border border-gray-400"
+                              className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                             />
                             <Label htmlFor="inquiry-relatives" className="text-sm">Relatives</Label>
                           </div>
@@ -2665,7 +2936,7 @@ export default function InquiriesPage() {
                               id="inquiry-others-referral" 
                               checked={inquiryFormData.referralSource.includes('others-referral')}
                               onCheckedChange={(checked) => handleArrayChange('referralSource', 'others-referral', checked as boolean)}
-                              className="border border-gray-400"
+                              className="border-2 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                             />
                             <Label htmlFor="inquiry-others-referral" className="text-sm">Others: (Pls specify)</Label>
                           </div>
@@ -2677,7 +2948,7 @@ export default function InquiriesPage() {
                               placeholder="Please specify" 
                               value={inquiryFormData.othersSpecify ?? ""}
                               onChange={(e) => setInquiryFormData(prev => ({ ...prev, othersSpecify: e.target.value }))}
-                              className="border border-gray-400"
+                              className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                             />
                           </div>
                         )}
@@ -2685,10 +2956,10 @@ export default function InquiriesPage() {
                     )}
                   </div>
                 </div>
-              </div>
+              </Card>
             </div>
 
-            <div className="flex justify-end gap-2 mt-6">
+            <div className="flex justify-end gap-2">
               <Button 
                 variant="outline" 
                 onClick={() => {
@@ -2938,9 +3209,9 @@ export default function InquiriesPage() {
               </div>
             </DialogHeader>
             {/* Search and Filters in fullscreen */}
-            <div className="flex items-center justify-between mb-6 mt-4">
-              <div className="flex items-center gap-4">
-                <div className="relative w-72">
+            <div className="flex items-center justify-between mb-6 mt-4 gap-4">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="relative w-56 flex-shrink-0">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search inquiries..."
@@ -2949,27 +3220,37 @@ export default function InquiriesPage() {
                     className="pl-10"
                   />
                 </div>
-                <Select value={studentTypeFilter} onValueChange={setStudentTypeFilter}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Filter by student type" />
+                <Select value={inquiryTypeFilter} onValueChange={setInquiryTypeFilter}>
+                  <SelectTrigger className="w-36">
+                    <SelectValue placeholder="Inquiry Type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Student Types</SelectItem>
-                    <SelectItem value="college">College</SelectItem>
-                    <SelectItem value="senior high">Senior High</SelectItem>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="online">Online</SelectItem>
+                    <SelectItem value="walk-in">Walk-in</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-48">
+                  <SelectTrigger className="w-36">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Status</SelectItem>
+                    <SelectItem value="all">All Status</SelectItem>
                     {STATUS_OPTIONS.map((status) => (
                       <SelectItem key={status} value={status}>
                         {status}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <Select value={studentTypeFilter} onValueChange={setStudentTypeFilter}>
+                  <SelectTrigger className="w-36">
+                    <SelectValue placeholder="Student Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Student Types</SelectItem>
+                    <SelectItem value="college">College</SelectItem>
+                    <SelectItem value="senior high">Senior High</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -2978,6 +3259,7 @@ export default function InquiriesPage() {
                 onClick={() => {
                   resetForm()
                   setEditingInquiryId(null)
+                  setInquiryDate(new Date().toISOString().split("T")[0]) // Ensure today's date is set
                   setIsInquiryDialogOpen(true)
                 }}
               >
@@ -3013,7 +3295,7 @@ export default function InquiriesPage() {
                           <TableHead className="font-semibold text-foreground">Status</TableHead>
                           <TableHead className="font-semibold text-foreground">Type of Student</TableHead>
                           <TableHead className="font-semibold text-foreground">Date</TableHead>
-                          <TableHead className="font-semibold text-foreground text-right">Actions</TableHead>
+                          <TableHead className="font-semibold text-foreground text-right w-[120px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -3067,7 +3349,7 @@ export default function InquiriesPage() {
                               </TableCell>
                               <TableCell className="py-4">
                                 {(() => {
-                                  const programs = (inquiry.program || "Not specified").split(/, |,/).filter(p => p.trim())
+                                  const programs = parseProgramString(inquiry.program || "Not specified")
                                   const firstTwo = programs.slice(0, 2)
                                   const remaining = programs.slice(2)
                                   
@@ -3120,7 +3402,7 @@ export default function InquiriesPage() {
                                     <Badge className="bg-green-600 text-white border-green-600">{inquiry.status}</Badge>
                                   ) : inquiry.status === "Enrolled to other STI" ? (
                                     <Badge className="bg-red-500 text-white border-red-500">{inquiry.status}</Badge>
-                                  ) : inquiry.status === "Enroll to other school" ? (
+                                  ) : inquiry.status === "Enrolled to other school" ? (
                                     <Badge className="bg-red-500 text-white border-red-500">{inquiry.status}</Badge>
                                   ) : (
                                     <Badge variant={getStatusColor(inquiry.status) as any}>{inquiry.status}</Badge>
@@ -3135,12 +3417,12 @@ export default function InquiriesPage() {
                               <TableCell className="py-4">
                                 <span className="text-sm text-muted-foreground">{inquiry.date}</span>
                               </TableCell>
-                              <TableCell className="py-4">
-                                <div className="flex items-center justify-end gap-2">
+                              <TableCell className="py-4 text-right">
+                                <div className="flex items-center justify-end gap-1 w-full">
                                   <Button
                                     variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 shrink-0 hover:bg-primary/10 hover:text-primary"
                                     onClick={async () => {
                                       const { data } = await supabase.from("inquiries").select("*").eq("id", inquiry.id).single()
                                       if (data) {
@@ -3153,16 +3435,16 @@ export default function InquiriesPage() {
                                   </Button>
                                   <Button
                                     variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 shrink-0 hover:bg-primary/10 hover:text-primary"
                                     onClick={() => handleEditInquiry(inquiry)}
                                   >
                                     <Edit className="h-4 w-4" />
                                   </Button>
                                   <Button
                                     variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-destructive hover:text-destructive"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 shrink-0 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
                                     onClick={() => setDeletingInquiryId(inquiry.id)}
                                   >
                                     <Trash2 className="h-4 w-4" />

@@ -68,6 +68,7 @@ export default function EnrollmentPage() {
   const [inquiriesCount, setInquiriesCount] = useState(0)
   const { startDate, endDate, setStartDate, setEndDate } = useDateRange()
   const [userPermissions, setUserPermissions] = useState<string[]>([]); // New state for user permissions
+  const [viewingStudent, setViewingStudent] = useState<EnrollmentRecord | null>(null)
 
   const fetchStudents = useCallback(async () => {
     setIsLoadingStudents(true)
@@ -673,12 +674,13 @@ export default function EnrollmentPage() {
                               </TableCell>
                               <TableCell className="py-4">{student.lastSchoolAttended}</TableCell>
                               <TableCell className="py-4">{student.date}</TableCell>
-                              <TableCell className="py-4">
-                                <div className="flex items-center justify-end gap-2">
+                              <TableCell className="py-4 text-right">
+                                <div className="flex items-center justify-end gap-1 w-full">
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
                                     className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                                    onClick={() => setViewingStudent(student)}
                                   >
                                     <Eye className="h-4 w-4" />
                                   </Button>
@@ -750,12 +752,13 @@ export default function EnrollmentPage() {
                               <TableCell className="py-4">{student.program}</TableCell>
                               <TableCell className="py-4">{student.lastSchoolAttended}</TableCell>
                               <TableCell className="py-4">{student.date}</TableCell>
-                              <TableCell className="py-4">
-                                <div className="flex items-center justify-end gap-2">
+                              <TableCell className="py-4 text-right">
+                                <div className="flex items-center justify-end gap-1 w-full">
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
                                     className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                                    onClick={() => setViewingStudent(student)}
                                   >
                                     <Eye className="h-4 w-4" />
                                   </Button>
@@ -827,12 +830,13 @@ export default function EnrollmentPage() {
                               <TableCell className="py-4">{student.program}</TableCell>
                               <TableCell className="py-4">{student.lastSchoolAttended}</TableCell>
                               <TableCell className="py-4">{student.date}</TableCell>
-                              <TableCell className="py-4">
-                                <div className="flex items-center justify-end gap-2">
+                              <TableCell className="py-4 text-right">
+                                <div className="flex items-center justify-end gap-1 w-full">
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
                                     className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                                    onClick={() => setViewingStudent(student)}
                                   >
                                     <Eye className="h-4 w-4" />
                                   </Button>
@@ -910,12 +914,13 @@ export default function EnrollmentPage() {
                               </TableCell>
                               <TableCell className="py-4">{student.lastSchoolAttended}</TableCell>
                               <TableCell className="py-4">{student.date}</TableCell>
-                              <TableCell className="py-4">
-                                <div className="flex items-center justify-end gap-2">
+                              <TableCell className="py-4 text-right">
+                                <div className="flex items-center justify-end gap-1 w-full">
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
                                     className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                                    onClick={() => setViewingStudent(student)}
                                   >
                                     <Eye className="h-4 w-4" />
                                   </Button>
@@ -1014,6 +1019,69 @@ export default function EnrollmentPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* View Student Dialog */}
+      <Dialog open={viewingStudent !== null} onOpenChange={(open) => !open && setViewingStudent(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>View Student Enrollment</DialogTitle>
+            <DialogDescription>Student enrollment information (read-only)</DialogDescription>
+          </DialogHeader>
+          {viewingStudent && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Name</Label>
+                  <p className="text-sm">{viewingStudent.name}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Email</Label>
+                  <p className="text-sm">{viewingStudent.email || "N/A"}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Phone</Label>
+                  <p className="text-sm">{viewingStudent.phone || "N/A"}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Date</Label>
+                  <p className="text-sm">{viewingStudent.date || "N/A"}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Student Type</Label>
+                  <p className="text-sm">{viewingStudent.studentType || "N/A"}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Program</Label>
+                  <p className="text-sm">{viewingStudent.program || "N/A"}</p>
+                </div>
+                {viewingStudent.lastSchoolAttended && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Last School Attended</Label>
+                    <p className="text-sm">{viewingStudent.lastSchoolAttended}</p>
+                  </div>
+                )}
+                {viewingStudent.schoolName && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">School Name</Label>
+                    <p className="text-sm">{viewingStudent.schoolName}</p>
+                  </div>
+                )}
+                {viewingStudent.studentNumber && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Student Number</Label>
+                    <p className="text-sm">{viewingStudent.studentNumber}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2 mt-6">
+            <Button variant="outline" onClick={() => setViewingStudent(null)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Fullscreen Table Dialog */}
       <Dialog open={isTableFullscreen} onOpenChange={setIsTableFullscreen}>
@@ -1155,7 +1223,7 @@ export default function EnrollmentPage() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8"
-                                  onClick={() => handleEditStudent(student)}
+                                  onClick={() => setViewingStudent(student)}
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>

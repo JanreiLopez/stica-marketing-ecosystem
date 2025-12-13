@@ -349,12 +349,26 @@ export async function GET(request: Request) {
       .map(([name, value]) => ({ name, value }))
 
     // Get enrolled students per program
+    // Define designated college programs that should always be displayed
+    const designatedPrograms = [
+      "BS Information Technology (BSIT)",
+      "BS Computer Science (BSCS)",
+      "BS Hospitality Management (BSHM)",
+      "BS Tourism Management (BSTM)",
+      "BS Business Administration (BSBA)"
+    ]
+    
+    // Initialize all designated programs with 0
+    const programCounts: { [key: string]: number } = {}
+    designatedPrograms.forEach(program => {
+      programCounts[program] = 0
+    })
+    
     let enrolledQuery = supabase
       .from('enrollments')
-      .select('program')
+      .select('program, student_type')
       .not('program', 'is', null)
       .neq('program', '')
-      .neq('program', 'Not specified')
       
     // Apply date filters
     if (startDate) {
@@ -365,26 +379,66 @@ export async function GET(request: Request) {
       enrolledQuery = enrolledQuery.lte('created_at', endDate)
     }
     
-    const { data: enrolledRaw } = await enrolledQuery
+    const { data: enrolledRaw, error: enrolledError } = await enrolledQuery
 
-    const programCounts: { [key: string]: number } = {}
+    if (enrolledError) {
+      console.error('Error fetching enrollments for programs:', enrolledError)
+    }
+
     enrolledRaw?.forEach((enrollment: any) => {
-      const programs = (enrollment.program || "").split(", ").filter((p: string) => p.trim() && p.trim() !== "Not specified")
-      programs.forEach((program: string) => {
-        // Only count college programs (exclude senior high strands)
-        const isSeniorHighProgram = 
-          program.toLowerCase().includes('humms') || 
-          program.toLowerCase().includes('abm') || 
-          program.toLowerCase().includes('mobile app') ||
-          program.toLowerCase().includes('it-mobile') ||
-          program.toLowerCase().includes('humanities and social sciences') ||
-          program.toLowerCase().includes('accountancy, business, and management');
-          
-        if (!isSeniorHighProgram) {
-          programCounts[program] = (programCounts[program] || 0) + 1
-        }
-      })
+      // Only count college students (exclude senior high students)
+      // Handle case variations and null/undefined values
+      const studentType = (enrollment.student_type || "").toLowerCase().trim()
+      const isCollegeStudent = studentType === "college" || studentType.includes("college")
+      
+      if (isCollegeStudent && enrollment.program) {
+        // Handle different separators: ", " or ","
+        const programs = (enrollment.program || "")
+          .split(/, |,/)
+          .map((p: string) => p.trim())
+          .filter((p: string) => p && p !== "Not specified" && p.length > 0)
+        
+        programs.forEach((program: string) => {
+          if (program) {
+            // Match program to designated program (case-insensitive, flexible matching)
+            const programLower = program.toLowerCase().trim()
+            let matchedProgram: string | null = null
+            
+            // Match programs
+            if (programLower.includes("information technology") || programLower.includes("bsit")) {
+              matchedProgram = "BS Information Technology (BSIT)"
+            } else if (programLower.includes("computer science") || programLower.includes("bscs")) {
+              matchedProgram = "BS Computer Science (BSCS)"
+            } else if (programLower.includes("hospitality management") || programLower.includes("bshm")) {
+              matchedProgram = "BS Hospitality Management (BSHM)"
+            } else if (programLower.includes("tourism management") || programLower.includes("bstm")) {
+              matchedProgram = "BS Tourism Management (BSTM)"
+            } else if (programLower.includes("business administration") || programLower.includes("bsba")) {
+              matchedProgram = "BS Business Administration (BSBA)"
+            }
+            
+            // If matched to a designated program, increment count
+            if (matchedProgram && programCounts.hasOwnProperty(matchedProgram)) {
+              programCounts[matchedProgram] = (programCounts[matchedProgram] || 0) + 1
+            } else if (!matchedProgram) {
+              // If it doesn't match a designated program, still count it (for other programs)
+              programCounts[program] = (programCounts[program] || 0) + 1
+            }
+          }
+        })
+      }
     })
+    
+    console.log('Enrolled per program calculation:', {
+      totalEnrollments: enrolledRaw?.length || 0,
+      programCounts,
+      sampleEnrollments: enrolledRaw?.slice(0, 3).map((e: any) => ({ 
+        student_type: e.student_type, 
+        program: e.program 
+      }))
+    })
+    
+    // Return all designated programs plus any other programs found, sorted by value (descending)
     const enrolledPerProgram = Object.entries(programCounts)
       .sort(([, a], [, b]) => b - a)
       .map(([name, value]) => ({ name, value }))
@@ -405,9 +459,7 @@ export async function GET(request: Request) {
     
     let enrolledStrandQuery = supabase
       .from('enrollments')
-      .select('program_track_strand, program')
-      .not('program_track_strand', 'is', null)
-      .neq('program_track_strand', '')
+      .select('program_track_strand, program, student_type')
       
     // Apply date filters
     if (startDate) {
@@ -418,35 +470,57 @@ export async function GET(request: Request) {
       enrolledStrandQuery = enrolledStrandQuery.lte('created_at', endDate)
     }
     
-    const { data: enrolledStrandRaw } = await enrolledStrandQuery
+    const { data: enrolledStrandRaw, error: enrolledStrandError } = await enrolledStrandQuery
+
+    if (enrolledStrandError) {
+      console.error('Error fetching enrollments for strands:', enrolledStrandError)
+    }
 
     // Map enrollment data to designated strands
     enrolledStrandRaw?.forEach((enrollment: any) => {
-      const strand = enrollment.program_track_strand || enrollment.program
-      if (strand && strand !== "Not specified") {
-        // Match enrollment strand to designated strand (case-insensitive, flexible matching)
-        const strandLower = strand.toLowerCase()
-        let matchedStrand: string | null = null
+      // Only count Senior High students (exclude college students)
+      const studentType = (enrollment.student_type || "").toLowerCase().trim()
+      const isSeniorHighStudent = studentType.includes("senior") || studentType.includes("high") || studentType === "senior high"
+      
+      if (isSeniorHighStudent) {
+        // Try program_track_strand first, then fall back to program
+        const strand = enrollment.program_track_strand || enrollment.program
         
-        // Match IT-related strands: IT + (mobile OR app OR web OR development)
-        if (strandLower.includes("it") && (
-          strandLower.includes("mobile") || 
-          strandLower.includes("app") || 
-          strandLower.includes("web") || 
-          strandLower.includes("development")
-        )) {
-          matchedStrand = "IT in Mobile App and Web Development"
-        } else if (strandLower.includes("humms") || strandLower.includes("humanities")) {
-          matchedStrand = "Humanities and Social Sciences (HUMMS)"
-        } else if (strandLower.includes("abm") || (strandLower.includes("accountancy") && strandLower.includes("business"))) {
-          matchedStrand = "Accountancy, Business, and Management (ABM)"
-        }
-        
-        // If matched to a designated strand, increment count
-        if (matchedStrand && strandEnrolledCounts.hasOwnProperty(matchedStrand)) {
-          strandEnrolledCounts[matchedStrand] = (strandEnrolledCounts[matchedStrand] || 0) + 1
+        if (strand && strand.trim() && strand !== "Not specified") {
+          // Match enrollment strand to designated strand (case-insensitive, flexible matching)
+          const strandLower = strand.toLowerCase().trim()
+          let matchedStrand: string | null = null
+          
+          // Match IT-related strands: IT + (mobile OR app OR web OR development)
+          if (strandLower.includes("it") && (
+            strandLower.includes("mobile") || 
+            strandLower.includes("app") || 
+            strandLower.includes("web") || 
+            strandLower.includes("development")
+          )) {
+            matchedStrand = "IT in Mobile App and Web Development"
+          } else if (strandLower.includes("humms") || (strandLower.includes("humanities") && strandLower.includes("social"))) {
+            matchedStrand = "Humanities and Social Sciences (HUMMS)"
+          } else if (strandLower.includes("abm") || (strandLower.includes("accountancy") && strandLower.includes("business") && strandLower.includes("management"))) {
+            matchedStrand = "Accountancy, Business, and Management (ABM)"
+          }
+          
+          // If matched to a designated strand, increment count
+          if (matchedStrand && strandEnrolledCounts.hasOwnProperty(matchedStrand)) {
+            strandEnrolledCounts[matchedStrand] = (strandEnrolledCounts[matchedStrand] || 0) + 1
+          }
         }
       }
+    })
+    
+    console.log('Enrolled per strand calculation:', {
+      totalEnrollments: enrolledStrandRaw?.length || 0,
+      strandCounts: strandEnrolledCounts,
+      sampleEnrollments: enrolledStrandRaw?.slice(0, 3).map((e: any) => ({ 
+        student_type: e.student_type, 
+        program_track_strand: e.program_track_strand,
+        program: e.program 
+      }))
     })
     
     // Return all designated strands sorted by value (descending - highest on top)

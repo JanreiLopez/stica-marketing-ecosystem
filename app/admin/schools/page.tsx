@@ -25,6 +25,7 @@ export default function SchoolsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [schoolTypeFilter, setSchoolTypeFilter] = useState("all")
+  const [distanceFilter, setDistanceFilter] = useState("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingSchoolId, setEditingSchoolId] = useState<number | null>(null)
@@ -57,25 +58,48 @@ export default function SchoolsPage() {
   const [startDate, setStartDate] = useState<Date | undefined>(new Date(currentYear - 1, 0, 1)) // January 1 of last year
   const [endDate, setEndDate] = useState<Date | undefined>(new Date(currentYear, 11, 31)) // December 31 of this year
 
+  // Helper function to check distance filter
+  const matchesDistance = (school: any) => {
+    if (distanceFilter === "all") return true
+    const kmAway = school.km_away ? parseFloat(school.km_away) : null
+    if (kmAway === null) return distanceFilter === "no-data"
+    
+    switch (distanceFilter) {
+      case "near":
+        return kmAway >= 0 && kmAway <= 5
+      case "medium":
+        return kmAway > 5 && kmAway <= 15
+      case "far":
+        return kmAway > 15
+      case "no-data":
+        return false
+      default:
+        return true
+    }
+  }
+
   const filteredPartners = schools.filter((school: any) => {
     const matchesSearch = school.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === "all" || school.status.toLowerCase() === statusFilter.toLowerCase()
     const matchesSchoolType = schoolTypeFilter === "all" || (school.school_type && school.school_type.toLowerCase() === schoolTypeFilter.toLowerCase())
-    return school.type === "feeder" && matchesSearch && matchesStatus && matchesSchoolType
+    const matchesDistanceFilter = matchesDistance(school)
+    return school.type === "feeder" && matchesSearch && matchesStatus && matchesSchoolType && matchesDistanceFilter
   })
 
   const filteredCompetitors = schools.filter((school: any) => {
     const matchesSearch = school.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === "all" || school.status.toLowerCase() === statusFilter.toLowerCase()
     const matchesSchoolType = schoolTypeFilter === "all" || (school.school_type && school.school_type.toLowerCase() === schoolTypeFilter.toLowerCase())
-    return school.type === "competitor" && matchesSearch && matchesStatus && matchesSchoolType
+    const matchesDistanceFilter = matchesDistance(school)
+    return school.type === "competitor" && matchesSearch && matchesStatus && matchesSchoolType && matchesDistanceFilter
   })
 
   const filteredNonFeeder = schools.filter((school: any) => {
     const matchesSearch = school.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === "all" || school.status.toLowerCase() === statusFilter.toLowerCase()
     const matchesSchoolType = schoolTypeFilter === "all" || (school.school_type && school.school_type.toLowerCase() === schoolTypeFilter.toLowerCase())
-    return school.type === "non-feeder" && matchesSearch && matchesStatus && matchesSchoolType
+    const matchesDistanceFilter = matchesDistance(school)
+    return school.type === "non-feeder" && matchesSearch && matchesStatus && matchesSchoolType && matchesDistanceFilter
   })
 
   const handleLogout = () => {
@@ -711,6 +735,18 @@ export default function SchoolsPage() {
                       <SelectItem value="private">Private</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Select value={distanceFilter} onValueChange={setDistanceFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Distance" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Distance</SelectItem>
+                      <SelectItem value="near">Near (0-5 km)</SelectItem>
+                      <SelectItem value="medium">Medium (5-15 km)</SelectItem>
+                      <SelectItem value="far">Far (15+ km)</SelectItem>
+                      <SelectItem value="no-data">No Distance Data</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -1087,10 +1123,12 @@ export default function SchoolsPage() {
               <Label htmlFor="school-name">School Name</Label>
               <Input
                 id="school-name"
-                placeholder="Enter school name (e.g., School of Engineering)"
+                placeholder={schoolFormData.type === "feeder" || schoolFormData.type === "non-feeder" 
+                  ? "(e.g., San Roque Catholic School)" 
+                  : "(e.g., San Beda College Alabang)"}
                 value={schoolFormData.name}
                 onChange={(e) => setSchoolFormData(prev => ({ ...prev, name: e.target.value }))}
-                className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
               />
             </div>
 
@@ -1102,7 +1140,7 @@ export default function SchoolsPage() {
                 placeholder="Enter distance in kilometers"
                 value={schoolFormData.kmAway}
                 onChange={(e) => setSchoolFormData(prev => ({ ...prev, kmAway: e.target.value }))}
-                className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
               />
             </div>
 
@@ -1143,7 +1181,7 @@ export default function SchoolsPage() {
                         setSchoolFormData(prev => ({ ...prev, grade10Students: value }))
                       }
                     }}
-                    className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                    className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                   />
                 </div>
 
@@ -1162,7 +1200,7 @@ export default function SchoolsPage() {
                         setSchoolFormData(prev => ({ ...prev, grade12Students: value }))
                       }
                     }}
-                    className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                    className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                   />
                 </div>
               </>
@@ -1245,7 +1283,7 @@ export default function SchoolsPage() {
                         setSchoolFormData(prev => ({ ...prev, estimatedTuitionFee: value }))
                       }
                     }}
-                    className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                    className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                   />
                 </div>
               </>
@@ -1259,7 +1297,7 @@ export default function SchoolsPage() {
                   placeholder="Enter school description"
                   value={schoolFormData.description}
                   onChange={(e) => setSchoolFormData(prev => ({ ...prev, description: e.target.value }))}
-                  className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500 min-h-24"
+                  className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400 min-h-24"
                   rows={4}
                 />
               </div>
@@ -1292,7 +1330,7 @@ export default function SchoolsPage() {
                               placeholder="Course name"
                               value={course.name}
                               onChange={(e) => updateCourse(course.id, "name", e.target.value)}
-                              className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                              className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                             />
                             <Input
                               type="number"
@@ -1304,7 +1342,7 @@ export default function SchoolsPage() {
                                   updateCourse(course.id, "tuitionFee", value)
                                 }
                               }}
-                              className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                              className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                             />
                           </div>
                           <Button
@@ -1329,7 +1367,7 @@ export default function SchoolsPage() {
                 value={schoolFormData.status}
                 onValueChange={(value) => setSchoolFormData(prev => ({ ...prev, status: value }))}
               >
-                <SelectTrigger id="school-status" className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500">
+                <SelectTrigger id="school-status" className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400">
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1403,10 +1441,12 @@ export default function SchoolsPage() {
               <Label htmlFor="school-name-edit">School Name</Label>
               <Input
                 id="school-name-edit"
-                placeholder="Enter school name (e.g., School of Engineering)"
+                placeholder={schoolFormData.type === "feeder" || schoolFormData.type === "non-feeder" 
+                  ? "(e.g., San Roque Catholic School)" 
+                  : "(e.g., San Beda College Alabang)"}
                 value={schoolFormData.name}
                 onChange={(e) => setSchoolFormData(prev => ({ ...prev, name: e.target.value }))}
-                className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
               />
             </div>
 
@@ -1418,7 +1458,7 @@ export default function SchoolsPage() {
                 placeholder="Enter distance in kilometers"
                 value={schoolFormData.kmAway}
                 onChange={(e) => setSchoolFormData(prev => ({ ...prev, kmAway: e.target.value }))}
-                className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
               />
             </div>
 
@@ -1459,7 +1499,7 @@ export default function SchoolsPage() {
                         setSchoolFormData(prev => ({ ...prev, grade10Students: value }))
                       }
                     }}
-                    className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                    className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                   />
                 </div>
 
@@ -1478,7 +1518,7 @@ export default function SchoolsPage() {
                         setSchoolFormData(prev => ({ ...prev, grade12Students: value }))
                       }
                     }}
-                    className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                    className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                   />
                 </div>
               </>
@@ -1492,7 +1532,7 @@ export default function SchoolsPage() {
                   placeholder="Enter school description"
                   value={schoolFormData.description}
                   onChange={(e) => setSchoolFormData(prev => ({ ...prev, description: e.target.value }))}
-                  className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500 min-h-24"
+                  className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400 min-h-24"
                   rows={4}
                 />
               </div>
@@ -1504,7 +1544,7 @@ export default function SchoolsPage() {
                 value={schoolFormData.status}
                 onValueChange={(value) => setSchoolFormData(prev => ({ ...prev, status: value }))}
               >
-                <SelectTrigger id="school-status-edit" className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500">
+                <SelectTrigger id="school-status-edit" className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400">
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1541,7 +1581,7 @@ export default function SchoolsPage() {
                           placeholder="Course name"
                           value={course.name}
                           onChange={(e) => updateCourse(course.id, "name", e.target.value)}
-                          className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                          className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                         />
                         <Input
                           type="number"
@@ -1553,7 +1593,7 @@ export default function SchoolsPage() {
                               updateCourse(course.id, "tuitionFee", value)
                             }
                           }}
-                          className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                          className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                         />
                       </div>
                       <Button
@@ -1616,7 +1656,7 @@ export default function SchoolsPage() {
             </div>
           </DialogHeader>
           {/* Search and Filters in fullscreen */}
-          <div className="flex items-center justify-between mb-6 mt-4 gap-4">
+          <div className="flex items-center justify-between mb-6 mt-4 gap-4 flex-wrap">
             <div className="relative w-72">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -1645,6 +1685,18 @@ export default function SchoolsPage() {
                   <SelectItem value="all">All Types</SelectItem>
                   <SelectItem value="public">Public</SelectItem>
                   <SelectItem value="private">Private</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={distanceFilter} onValueChange={setDistanceFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Distance" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Distance</SelectItem>
+                  <SelectItem value="near">Near (0-5 km)</SelectItem>
+                  <SelectItem value="medium">Medium (5-15 km)</SelectItem>
+                  <SelectItem value="far">Far (15+ km)</SelectItem>
+                  <SelectItem value="no-data">No Distance Data</SelectItem>
                 </SelectContent>
               </Select>
             </div>

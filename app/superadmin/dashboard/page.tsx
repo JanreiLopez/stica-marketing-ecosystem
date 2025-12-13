@@ -56,6 +56,27 @@ export default function SuperAdminDashboard() {
   const [adminToDeleteId, setAdminToDeleteId] = useState<string | null>(null) // State to store admin ID to delete
   const [adminPasswords, setAdminPasswords] = useState<Record<string, string>>({}) // Store generated passwords by admin ID
 
+  // Load saved passwords from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedPasswords = localStorage.getItem('adminPasswords');
+      if (savedPasswords) {
+        setAdminPasswords(JSON.parse(savedPasswords));
+      }
+    } catch (error) {
+      console.error('Error loading saved passwords from localStorage:', error);
+    }
+  }, []);
+
+  // Save passwords to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('adminPasswords', JSON.stringify(adminPasswords));
+    } catch (error) {
+      console.error('Error saving passwords to localStorage:', error);
+    }
+  }, [adminPasswords]);
+
   useEffect(() => {
     checkDatabaseStructure();
     fetchAdmins()
@@ -355,6 +376,13 @@ export default function SuperAdminDashboard() {
       
       // Refresh the admin list
       fetchAdmins()
+      
+      // Remove the password from localStorage when admin is deleted
+      setAdminPasswords(prev => {
+        const updated = { ...prev };
+        delete updated[adminToDeleteId];
+        return updated;
+      });
       
       // Show success message
       toast.success("Admin account deleted successfully")

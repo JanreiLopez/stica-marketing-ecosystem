@@ -47,13 +47,17 @@ export async function POST(request: Request) {
     const body = await request.json()
     
     // Convert camelCase to snake_case for database
-    const dbBody = {
+    const dbBody: any = {
       title: body.title,
-      leads_generated: body.leadsGenerated,
       school: body.school,
       budget: body.budget,
       date: body.date
     };
+    
+    // Only include leads_generated if provided (for backward compatibility)
+    if (body.leadsGenerated !== undefined) {
+      dbBody.leads_generated = body.leadsGenerated;
+    }
     
     const { data, error } = await supabase
       .from('marketing_activities')
@@ -91,13 +95,17 @@ export async function PUT(request: Request) {
     }
 
     // Convert camelCase to snake_case for database
-    const dbBody = {
+    const dbBody: any = {
       title: body.title,
-      leads_generated: body.leadsGenerated,
       school: body.school,
       budget: body.budget,
       date: body.date
     };
+    
+    // Only include leads_generated if provided (for backward compatibility)
+    if (body.leadsGenerated !== undefined) {
+      dbBody.leads_generated = body.leadsGenerated;
+    }
 
     const { data, error } = await supabase
       .from('marketing_activities')

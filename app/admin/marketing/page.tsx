@@ -30,7 +30,6 @@ export default function MarketingPage() {
     id: null as number | null,
     title: "",
     selectedTitle: "",
-    leadsGenerated: "",
     school: "",
     budget: "",
     date: undefined as Date | undefined,
@@ -62,6 +61,14 @@ export default function MarketingPage() {
   const [schoolsLoading, setSchoolsLoading] = useState(true)
   const [totalEnrolledStudents, setTotalEnrolledStudents] = useState<number>(0)
   const [isConversionRateDialogOpen, setIsConversionRateDialogOpen] = useState(false)
+  const [viewingActivity, setViewingActivity] = useState<{
+    id: number
+    title: string
+    leadsGenerated: number
+    school: string
+    budget: string
+    date: string
+  } | null>(null)
   
   const handleLogout = () => {
     router.push("/login")
@@ -154,7 +161,6 @@ export default function MarketingPage() {
       id: activity.id,
       title: activity.title,
       selectedTitle: activity.title,
-      leadsGenerated: activity.leadsGenerated.toString(),
       school: activity.school || "",
       budget: activity.budget,
       date: activity.date ? new Date(activity.date) : undefined,
@@ -194,7 +200,6 @@ export default function MarketingPage() {
     try {
       const activityData = {
         title: formData.title,
-        leadsGenerated: formData.leadsGenerated ? parseInt(formData.leadsGenerated) || 0 : 0,
         school: formData.school || "",
         budget: formData.budget,
         date: format(formData.date, 'yyyy-MM-dd'),
@@ -237,7 +242,6 @@ export default function MarketingPage() {
           id: null,
           title: "",
           selectedTitle: "",
-          leadsGenerated: "",
           school: "",
           budget: "",
           date: undefined,
@@ -306,7 +310,48 @@ export default function MarketingPage() {
 
       if (response.ok) {
         console.log('Fetched marketing activities:', data)
-        setMarketingActivities(data)
+        
+        // Fetch inquiries to calculate leads generated
+        const { data: inquiries, error: inquiriesError } = await supabase
+          .from('inquiries')
+          .select('events_description')
+        
+        if (inquiriesError) {
+          console.error('Error fetching inquiries:', inquiriesError)
+        }
+        
+        // Calculate leads generated for each activity
+        const activitiesWithLeads = data.map((activity: any) => {
+          // Format date as MM/DD/YYYY to match how it's stored in inquiries
+          let activityDate = ''
+          if (activity.date) {
+            const date = new Date(activity.date)
+            const month = date.getMonth() + 1
+            const day = date.getDate()
+            const year = date.getFullYear()
+            activityDate = `${month}/${day}/${year}`
+          }
+          
+          // Match inquiries where events_description matches either:
+          // 1. Just the title (for backward compatibility)
+          // 2. Title - Date format (current format)
+          const displayText = activityDate ? `${activity.title} - ${activityDate}` : activity.title
+          
+          const leadsCount = inquiries?.filter(
+            (inquiry: any) => {
+              const inquiryEvent = inquiry.events_description || ''
+              // Match exact format or just title
+              return inquiryEvent === displayText || inquiryEvent === activity.title
+            }
+          ).length || 0
+          
+          return {
+            ...activity,
+            leadsGenerated: leadsCount
+          }
+        })
+        
+        setMarketingActivities(activitiesWithLeads)
         // Update eventTitles with unique titles from activities, but only if they're not already there
         const titles = Array.from(new Set(data.map((activity: any) => activity.title))) as string[]
         setEventTitles(prevTitles => {
@@ -510,7 +555,35 @@ export default function MarketingPage() {
   // Get filtered activities based on time period
   const filteredActivities = filterActivitiesByTimePeriod(marketingActivities)
 
-  // Calculate statistics based on filtered activities
+  // Calculate statistics based on ALL activities (not filtered by tab)
+  const calculateOverallStats = () => {
+    const totalLeads = marketingActivities.reduce((sum, activity) => sum + activity.leadsGenerated, 0)
+    const totalBudget = marketingActivities.reduce((sum, activity) => {
+      const budget = parseFloat(activity.budget.replace(/[^0-9.-]+/g, "")) || 0
+      return sum + budget
+    }, 0)
+    
+    // Calculate Campaign ROI: Total Leads / Total Enrolled Students
+    // This shows how many leads were generated per enrolled student
+    const roi = totalEnrolledStudents > 0 ? totalLeads / totalEnrolledStudents : 0
+    
+    // Calculate Conversion Rate: (Total Enrolled Students / Total Leads Generated) * 100
+    // This shows what percentage of leads converted to enrolled students
+    const conversionRate = totalLeads > 0 ? (totalEnrolledStudents / totalLeads) * 100 : 0
+    
+    return {
+      totalLeads,
+      totalBudget,
+      activityCount: marketingActivities.length,
+      roi: Math.round(roi * 100) / 100, // Round to 2 decimal places (leads per student)
+      conversionRate: Math.round(conversionRate * 100) / 100 // Round to 2 decimal places (percentage)
+    }
+  }
+  
+  // Overall stats for KPI cards (not affected by tabs)
+  const overallStats = calculateOverallStats()
+  
+  // Calculate statistics based on filtered activities (for table display)
   const calculateStats = () => {
     const totalLeads = filteredActivities.reduce((sum, activity) => sum + activity.leadsGenerated, 0)
     const totalBudget = filteredActivities.reduce((sum, activity) => {
@@ -518,20 +591,10 @@ export default function MarketingPage() {
       return sum + budget
     }, 0)
     
-    // Calculate Campaign ROI: Total Leads / Total Graduating Students
-    // This shows how many leads were generated per graduating student
-    const roi = totalEnrolledStudents > 0 ? totalLeads / totalEnrolledStudents : 0
-    
-    // Calculate Conversion Rate: (Total Graduating Students / Total Leads Generated) * 100
-    // This shows what percentage of leads converted to graduating students
-    const conversionRate = totalLeads > 0 ? (totalEnrolledStudents / totalLeads) * 100 : 0
-    
     return {
       totalLeads,
       totalBudget,
       activityCount: filteredActivities.length,
-      roi: Math.round(roi * 100) / 100, // Round to 2 decimal places (leads per student)
-      conversionRate: Math.round(conversionRate * 100) / 100 // Round to 2 decimal places (percentage)
     }
   }
   
@@ -666,7 +729,7 @@ export default function MarketingPage() {
             </div>
           </div>
 
-          {/* Marketing Metrics */}
+          {/* Marketing Metrics - Overall (Not affected by tabs) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -674,8 +737,8 @@ export default function MarketingPage() {
                 <Target className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.totalLeads}</div>
-                <p className="text-xs text-muted-foreground">{periodLabel}</p>
+                <div className="text-2xl font-bold">{overallStats.totalLeads}</div>
+                <p className="text-xs text-muted-foreground">All time</p>
               </CardContent>
             </Card>
 
@@ -686,9 +749,9 @@ export default function MarketingPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {stats.totalLeads > 0 ? `₱${Math.round(stats.totalBudget / stats.totalLeads).toLocaleString()}` : '₱0'}
+                  {overallStats.totalLeads > 0 ? `₱${Math.round(overallStats.totalBudget / overallStats.totalLeads).toLocaleString()}` : '₱0'}
                 </div>
-                <p className="text-xs text-muted-foreground">{periodLabel}</p>
+                <p className="text-xs text-muted-foreground">All time</p>
               </CardContent>
             </Card>
 
@@ -698,8 +761,8 @@ export default function MarketingPage() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.roi.toFixed(2)}</div>
-                <p className="text-xs text-muted-foreground">Leads per graduating student</p>
+                <div className="text-2xl font-bold">{overallStats.roi.toFixed(2)}</div>
+                <p className="text-xs text-muted-foreground">Leads per enrolled student</p>
               </CardContent>
             </Card>
 
@@ -713,7 +776,7 @@ export default function MarketingPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {stats.conversionRate.toFixed(2)}%
+                  {overallStats.conversionRate.toFixed(2)}%
                 </div>
                 <p className="text-xs text-muted-foreground">Leads to enrolled students</p>
               </CardContent>
@@ -794,7 +857,7 @@ export default function MarketingPage() {
                           <TableHead>School</TableHead>
                           <TableHead>Budget</TableHead>
                           <TableHead>Date</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
+                          <TableHead className="font-semibold text-foreground text-right w-[120px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -805,21 +868,28 @@ export default function MarketingPage() {
                             <TableCell>{activity.school || "-"}</TableCell>
                             <TableCell>{activity.budget}</TableCell>
                             <TableCell>{activity.date || "-"}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
-                                <Button variant="outline" size="sm">
+                            <TableCell className="py-4 text-right">
+                              <div className="flex items-center justify-end gap-1 w-full">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 shrink-0 hover:bg-primary/10 hover:text-primary"
+                                  onClick={() => setViewingActivity(activity)}
+                                >
                                   <Eye className="h-4 w-4" />
                                 </Button>
                                 <Button
-                                  variant="outline"
+                                  variant="ghost"
                                   size="sm"
+                                  className="h-8 w-8 p-0 shrink-0 hover:bg-primary/10 hover:text-primary"
                                   onClick={() => handleEditActivity(activity)}
                                 >
                                   <Edit className="h-4 w-4" />
                                 </Button>
                                 <Button
-                                  variant="outline"
+                                  variant="ghost"
                                   size="sm"
+                                  className="h-8 w-8 p-0 shrink-0 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
                                   onClick={() => handleDeleteActivity(activity.id)}
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -866,7 +936,7 @@ export default function MarketingPage() {
                               handleCancelAddTitle()
                             }
                           }}
-                          className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                          className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                           autoFocus
                         />
                         <Button
@@ -886,7 +956,7 @@ export default function MarketingPage() {
                     </div>
                   ) : (
                     <Select value={formData.selectedTitle} onValueChange={handleSelectTitle}>
-                      <SelectTrigger id="title" className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500">
+                      <SelectTrigger id="title" className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400">
                         <SelectValue placeholder="Select or add event title" />
                       </SelectTrigger>
                       <SelectContent>
@@ -943,7 +1013,7 @@ export default function MarketingPage() {
                     value={formData.school}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, school: value }))}
                   >
-                    <SelectTrigger id="school" className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500">
+                    <SelectTrigger id="school" className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400">
                       <SelectValue placeholder="Select school" />
                     </SelectTrigger>
                     <SelectContent>
@@ -992,7 +1062,7 @@ export default function MarketingPage() {
                       <Button
                         id="date"
                         variant="outline"
-                        className="w-full justify-start text-left font-normal border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                        className="w-full justify-start text-left font-normal border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {formData.date ? format(formData.date, "PPP") : "Pick a date"}
@@ -1016,19 +1086,7 @@ export default function MarketingPage() {
                     placeholder="Enter budget (e.g., ₱250,000)"
                     value={formData.budget}
                     onChange={(e) => setFormData(prev => ({ ...prev, budget: e.target.value }))}
-                    className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="leads">Leads Generated</Label>
-                  <Input
-                    id="leads"
-                    type="number"
-                    placeholder="Enter number of leads"
-                    value={formData.leadsGenerated}
-                    onChange={(e) => setFormData(prev => ({ ...prev, leadsGenerated: e.target.value }))}
-                    className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                    className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                   />
                 </div>
 
@@ -1041,7 +1099,6 @@ export default function MarketingPage() {
                         id: null,
                         title: "",
                         selectedTitle: "",
-                        leadsGenerated: "",
                         school: "",
                         budget: "",
                         date: undefined,
@@ -1060,6 +1117,55 @@ export default function MarketingPage() {
                     {isEditing ? 'Update Activity' : 'Add Activity'}
                   </Button>
                 </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* View Activity Dialog */}
+          <Dialog open={viewingActivity !== null} onOpenChange={(open) => !open && setViewingActivity(null)}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>View Marketing Activity</DialogTitle>
+                <DialogDescription>Marketing activity information (read-only)</DialogDescription>
+              </DialogHeader>
+              {viewingActivity && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Title</Label>
+                      <p className="text-sm">{viewingActivity.title}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">School</Label>
+                      <p className="text-sm">{viewingActivity.school || "N/A"}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Budget</Label>
+                      <p className="text-sm">₱{parseFloat(viewingActivity.budget || "0").toLocaleString()}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Leads Generated</Label>
+                      <p className="text-sm">{viewingActivity.leadsGenerated.toLocaleString()}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Date</Label>
+                      <p className="text-sm">{viewingActivity.date ? format(new Date(viewingActivity.date), "MMM dd, yyyy") : "N/A"}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Cost Per Lead</Label>
+                      <p className="text-sm">
+                        {viewingActivity.leadsGenerated > 0 
+                          ? `₱${Math.round(parseFloat(viewingActivity.budget || "0") / viewingActivity.leadsGenerated).toLocaleString()}`
+                          : "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-end gap-2 mt-6">
+                <Button variant="outline" onClick={() => setViewingActivity(null)}>
+                  Close
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -1104,7 +1210,7 @@ export default function MarketingPage() {
                       <TableHead>School</TableHead>
                       <TableHead>Budget</TableHead>
                       <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="font-semibold text-foreground text-right w-[120px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1115,12 +1221,30 @@ export default function MarketingPage() {
                         <TableCell>{activity.school || "-"}</TableCell>
                         <TableCell>₱{activity.budget.toLocaleString()}</TableCell>
                         <TableCell>{format(new Date(activity.date), "MMM dd, yyyy")}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditActivity(activity)}>
+                        <TableCell className="py-4 text-right">
+                          <div className="flex items-center justify-end gap-1 w-full">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 shrink-0 hover:bg-primary/10 hover:text-primary"
+                              onClick={() => setViewingActivity(activity)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 shrink-0 hover:bg-primary/10 hover:text-primary"
+                              onClick={() => handleEditActivity(activity)}
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteActivity(activity.id)}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 shrink-0 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                              onClick={() => handleDeleteActivity(activity.id)}
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>

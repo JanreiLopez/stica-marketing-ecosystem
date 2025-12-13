@@ -76,7 +76,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
               value="senior-high"
               checked={studentFormData.studentType === "senior-high"}
               onChange={(e) => setStudentFormData((prev) => ({ ...prev, studentType: e.target.value as StudentFormData["studentType"] }))}
-              className="w-4 h-4 border border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+              className="w-4 h-4 border-2 border-gray-300 focus:border-gray-400 focus:ring-0"
             />
             <Label htmlFor="student-senior-high" className="text-sm font-medium cursor-pointer">
               Senior High School
@@ -90,7 +90,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
               value="college"
               checked={studentFormData.studentType === "college"}
               onChange={(e) => setStudentFormData((prev) => ({ ...prev, studentType: e.target.value as StudentFormData["studentType"] }))}
-              className="w-4 h-4 border border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+              className="w-4 h-4 border-2 border-gray-300 focus:border-gray-400 focus:ring-0"
             />
             <Label htmlFor="student-college" className="text-sm font-medium cursor-pointer">
               College
@@ -117,7 +117,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
                     studentNumber: "",
                   }))
                 }
-                className="w-4 h-4 border border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="w-4 h-4 border-2 border-gray-300 focus:border-gray-400 focus:ring-0"
               />
               <Label htmlFor="college-freshman" className="text-sm font-medium cursor-pointer">
                 Freshman
@@ -137,7 +137,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
                     studentNumber: "",
                   }))
                 }
-                className="w-4 h-4 border border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="w-4 h-4 border-2 border-gray-300 focus:border-gray-400 focus:ring-0"
               />
               <Label htmlFor="college-transferee" className="text-sm font-medium cursor-pointer">
                 Transferee
@@ -156,7 +156,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
                     collegeStudentType: e.target.value as StudentFormData["collegeStudentType"],
                   }))
                 }
-                className="w-4 h-4 border border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="w-4 h-4 border-2 border-gray-300 focus:border-gray-400 focus:ring-0"
               />
               <Label htmlFor="college-sti-transferee" className="text-sm font-medium cursor-pointer">
                 STI Transferee
@@ -183,13 +183,13 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
                   }
                 }}
                 maxLength={11}
-                className={`border ${
-                  studentFormData.studentNumber.length > 0 && studentFormData.studentNumber.length !== 11
-                    ? "border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500"
-                    : "border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+                    className={`border-2 ${
+                  (studentFormData.studentNumber?.length ?? 0) > 0 && (studentFormData.studentNumber?.length ?? 0) !== 11
+                    ? "border-red-500 focus-visible:ring-0 focus-visible:border-red-500"
+                    : "border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
                 }`}
               />
-              {studentFormData.studentNumber.length > 0 && studentFormData.studentNumber.length !== 11 && (
+              {(studentFormData.studentNumber?.length ?? 0) > 0 && (studentFormData.studentNumber?.length ?? 0) !== 11 && (
                 <p className="text-sm text-red-500">Student number must be exactly 11 digits</p>
               )}
             </div>
@@ -205,7 +205,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
             placeholder="Enter first name"
             value={studentFormData.firstName ?? ""}
             onChange={(e) => setStudentFormData((prev) => ({ ...prev, firstName: e.target.value }))}
-            className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+            className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
           />
         </div>
         <div className="space-y-2">
@@ -215,7 +215,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
             placeholder="Enter middle name"
             value={studentFormData.middleName ?? ""}
             onChange={(e) => setStudentFormData((prev) => ({ ...prev, middleName: e.target.value }))}
-            className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+            className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
           />
         </div>
         <div className="space-y-2">
@@ -225,7 +225,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
             placeholder="Enter last name"
             value={studentFormData.lastName ?? ""}
             onChange={(e) => setStudentFormData((prev) => ({ ...prev, lastName: e.target.value }))}
-            className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+            className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
           />
         </div>
       </div>
@@ -237,7 +237,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
           type="date"
           value={studentFormData.dateOfBirth ?? ""}
           onChange={(e) => setStudentFormData((prev) => ({ ...prev, dateOfBirth: e.target.value }))}
-          className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+          className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
         />
       </div>
 
@@ -245,10 +245,10 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
         <div className="space-y-2">
           <Label className="text-base font-medium">Civil Status</Label>
           <Select
-            value={studentFormData.civilStatus}
+            value={studentFormData.civilStatus ?? ""}
             onValueChange={(value) => setStudentFormData((prev) => ({ ...prev, civilStatus: value }))}
           >
-            <SelectTrigger className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500">
+            <SelectTrigger className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400">
               <SelectValue placeholder="Select civil status" />
             </SelectTrigger>
             <SelectContent>
@@ -263,10 +263,10 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
         <div className="space-y-2">
           <Label className="text-base font-medium">Gender</Label>
           <Select
-            value={studentFormData.gender}
+            value={studentFormData.gender ?? ""}
             onValueChange={(value) => setStudentFormData((prev) => ({ ...prev, gender: value }))}
           >
-            <SelectTrigger className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500">
+            <SelectTrigger className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400">
               <SelectValue placeholder="Select gender" />
             </SelectTrigger>
             <SelectContent>
@@ -290,7 +290,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
               placeholder="Enter landline number"
               value={studentFormData.landline ?? ""}
               onChange={(e) => setStudentFormData((prev) => ({ ...prev, landline: e.target.value }))}
-              className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+              className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
             />
           </div>
           <div className="space-y-2">
@@ -301,7 +301,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
               placeholder="Enter mobile number"
               value={studentFormData.mobileNumber ?? ""}
               onChange={(e) => setStudentFormData((prev) => ({ ...prev, mobileNumber: e.target.value }))}
-              className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+              className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
             />
           </div>
           <div className="space-y-2">
@@ -312,7 +312,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
               placeholder="Enter email address"
               value={studentFormData.email ?? ""}
               onChange={(e) => setStudentFormData((prev) => ({ ...prev, email: e.target.value }))}
-              className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
+              className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400"
             />
           </div>
         </div>
@@ -504,7 +504,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
         <div className="space-y-2">
           <Label htmlFor="lastSchoolAttended">Last School Attended</Label>
           <Select
-            value={studentFormData.lastSchoolAttended}
+            value={studentFormData.lastSchoolAttended ?? ""}
             onValueChange={(value) => {
               setStudentFormData((prev) => {
                 const updated = { ...prev, lastSchoolAttended: value }
@@ -519,7 +519,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
               })
             }}
           >
-            <SelectTrigger id="lastSchoolAttended" className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500">
+            <SelectTrigger id="lastSchoolAttended" className="border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400">
               <SelectValue placeholder="Select last school attended" />
             </SelectTrigger>
             <SelectContent>
@@ -552,7 +552,7 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
                   role="combobox"
                   aria-expanded={schoolPopoverOpen}
                   className={cn(
-                    "w-full justify-between border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500",
+                    "w-full justify-between border-2 border-gray-300 focus-visible:ring-0 focus-visible:border-gray-400",
                     !studentFormData.schoolName && "text-muted-foreground"
                   )}
                   disabled={!studentFormData.lastSchoolAttended || loadingSchools}
@@ -603,18 +603,6 @@ export function EnrollmentForm({ studentFormData, setStudentFormData, isEnrollme
           </div>
         )}
 
-        {studentFormData.studentType !== "senior-high" && (
-          <div className="space-y-2">
-            <Label htmlFor="programTrackStrand">Program/Track&Strand/Specialization</Label>
-            <Input
-              id="programTrackStrand"
-              placeholder="Enter program, track & strand, or specialization"
-              value={studentFormData.programTrackStrand ?? ""}
-              onChange={(e) => setStudentFormData((prev) => ({ ...prev, programTrackStrand: e.target.value }))}
-              className="border border-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
-            />
-          </div>
-        )}
       </div>
     </div>
   )

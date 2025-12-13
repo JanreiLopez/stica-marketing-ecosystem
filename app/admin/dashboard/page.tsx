@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { FileText, Users, BookOpen, TrendingUp, CalendarIcon, Building2, Search, Target, MoreVertical } from "lucide-react"
+import { FileText, Users, BookOpen, TrendingUp, TrendingDown, CalendarIcon, Building2, Search, Target, MoreVertical } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -325,7 +325,47 @@ export default function AdminDashboardPage() {
         const data = await response.json()
 
         if (response.ok) {
-          setMarketingActivities(data || [])
+          // Fetch inquiries to calculate leads generated
+          const { data: inquiries, error: inquiriesError } = await supabase
+            .from('inquiries')
+            .select('events_description')
+          
+          if (inquiriesError) {
+            console.error('Error fetching inquiries:', inquiriesError)
+          }
+          
+          // Calculate leads generated for each activity
+          const activitiesWithLeads = data.map((activity: any) => {
+            // Format date as MM/DD/YYYY to match how it's stored in inquiries
+            let activityDate = ''
+            if (activity.date) {
+              const date = new Date(activity.date)
+              const month = date.getMonth() + 1
+              const day = date.getDate()
+              const year = date.getFullYear()
+              activityDate = `${month}/${day}/${year}`
+            }
+            
+            // Match inquiries where events_description matches either:
+            // 1. Just the title (for backward compatibility)
+            // 2. Title - Date format (current format)
+            const displayText = activityDate ? `${activity.title} - ${activityDate}` : activity.title
+            
+            const leadsCount = inquiries?.filter(
+              (inquiry: any) => {
+                const inquiryEvent = inquiry.events_description || ''
+                // Match exact format or just title
+                return inquiryEvent === displayText || inquiryEvent === activity.title
+              }
+            ).length || 0
+            
+            return {
+              ...activity,
+              leadsGenerated: leadsCount
+            }
+          })
+          
+          setMarketingActivities(activitiesWithLeads)
         } else {
           console.error('Error fetching marketing activities:', data.error)
         }
@@ -1101,7 +1141,9 @@ export default function AdminDashboardPage() {
                   <Target className="h-3.5 w-3.5" />
                   Actionable Insights & Recommendations
                 </CardTitle>
-                <CardDescription className="text-xs mt-0.5">Data-driven recommendations for marketing optimization</CardDescription>
+                <CardDescription className="text-xs mt-0.5">
+                  Receive data-driven insights including high-performing marketing sources, conversion rate trends, growth opportunities, and specific recommendations for budget allocation, campaign optimization, and process improvements based on your inquiry and enrollment data.
+                </CardDescription>
               </CardHeader>
               <CardContent className="p-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1361,6 +1403,7 @@ export default function AdminDashboardPage() {
                             type="number" 
                             domain={[0, 'dataMax']}
                             tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 8 }}
+                            tickFormatter={(value: number) => Math.round(value).toString()}
                             label={{ value: 'Number of Inquiries', position: 'insideBottom', offset: -3, fill: 'hsl(var(--foreground))', style: { fontSize: '8px' } }}
                           />
                           <YAxis 
@@ -1694,6 +1737,8 @@ export default function AdminDashboardPage() {
                               type="number" 
                               domain={[0, (dataMax: number) => Math.max(dataMax || 0, 1)]}
                               tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                              tickFormatter={(value: number) => Math.round(value).toString()}
+                              allowDecimals={false}
                               label={{ value: 'Number of Students', position: 'insideBottom', offset: -3, fill: 'hsl(var(--foreground))', style: { fontSize: '10px' } }}
                             />
                             <YAxis 
@@ -1742,7 +1787,7 @@ export default function AdminDashboardPage() {
                                   dataKey="value" 
                                   position="right" 
                                   style={{ fill: 'hsl(var(--foreground))', fontSize: '11px', fontWeight: 500 }}
-                                  formatter={(value: number) => value}
+                                  formatter={(value: number) => Math.round(value)}
                                 />
                               </Bar>
                           </BarChart>
@@ -1792,6 +1837,8 @@ export default function AdminDashboardPage() {
                               type="number" 
                               domain={[0, (dataMax: number) => Math.max(dataMax || 0, 1)]}
                               tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                              tickFormatter={(value: number) => Math.round(value).toString()}
+                              allowDecimals={false}
                               label={{ value: 'Number of Students', position: 'insideBottom', offset: -3, fill: 'hsl(var(--foreground))', style: { fontSize: '10px' } }}
                             />
                             <YAxis 
@@ -1840,7 +1887,7 @@ export default function AdminDashboardPage() {
                                   dataKey="value" 
                                   position="right" 
                                   style={{ fill: 'hsl(var(--foreground))', fontSize: '11px', fontWeight: 500 }}
-                                  formatter={(value: number) => value}
+                                  formatter={(value: number) => Math.round(value)}
                                 />
                               </Bar>
                             </BarChart>
@@ -1986,12 +2033,317 @@ export default function AdminDashboardPage() {
                       })()}
                     </CardContent>
                   </Card>
-                </div>
-              </div>
 
-              {/* Schools Charts */}
-              <div className="space-y-4">
+                  {/* Cost Per Lead Analysis */}
+                  <Card className="border-2 shadow-lg">
+                    <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border-b py-2">
+                      <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                        <TrendingDown className="h-3.5 w-3.5" />
+                        Cost Per Lead Analysis
+                      </CardTitle>
+                      <CardDescription className="text-xs mt-0.5">Marketing efficiency: budget spent per lead generated (lower is better)</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-2 pt-0">
+                      {isLoadingMarketing ? (
+                        <div className="h-[350px] flex flex-col items-center justify-center border border-dashed border-border rounded-lg">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+                          <p className="text-sm text-muted-foreground">Loading chart data...</p>
                         </div>
+                      ) : (() => {
+                        const cplData = marketingActivities
+                          .filter((activity: any) => {
+                            const budget = parseFloat(activity.budget || 0)
+                            const leads = activity.leadsGenerated || 0
+                            return budget > 0 && leads > 0
+                          })
+                          .map((activity: any) => {
+                            const budget = parseFloat(activity.budget || 0)
+                            const leads = activity.leadsGenerated || 0
+                            const cpl = leads > 0 ? budget / leads : 0
+                            return {
+                              name: activity.title || 'Untitled',
+                              cpl: Math.round(cpl * 100) / 100, // Round to 2 decimal places
+                              budget: budget,
+                              leads: leads
+                            }
+                          })
+                          .sort((a, b) => a.cpl - b.cpl) // Sort by CPL ascending (lowest = best)
+                          .slice(0, 10)
+                        
+                        return cplData.length > 0 ? (
+                          <ChartContainer
+                            config={{
+                              cpl: {
+                                label: "Cost Per Lead",
+                                color: "hsl(var(--chart-1))",
+                              },
+                            }}
+                            className="h-[350px] w-full"
+                          >
+                            <BarChart
+                              layout="vertical"
+                              data={cplData}
+                              margin={{ top: 5, right: 60, left: 90, bottom: 5 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" opacity={0.3} />
+                              <XAxis 
+                                type="number" 
+                                domain={[0, (dataMax: number) => Math.max(dataMax || 0, 1)]}
+                                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                                tickFormatter={(value: number) => {
+                                  if (value >= 1000) {
+                                    return `₱${(value / 1000).toFixed(1)}k`
+                                  }
+                                  return `₱${Math.round(value)}`
+                                }}
+                                allowDecimals={false}
+                                label={{ value: 'Cost Per Lead (₱)', position: 'insideBottom', offset: -3, fill: 'hsl(var(--foreground))', style: { fontSize: '10px' } }}
+                              />
+                              <YAxis 
+                                dataKey="name" 
+                                type="category" 
+                                width={85}
+                                tick={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 500 }}
+                                tickFormatter={(value: string) => {
+                                  if (value.length > 15) {
+                                    return `${value.substring(0, 15)}...`
+                                  }
+                                  return value
+                                }}
+                              />
+                              <Tooltip
+                                content={({ active, payload }) => {
+                                  if (active && payload && payload.length) {
+                                    const data = payload[0].payload
+                                    return (
+                                      <div className="rounded-lg border-2 bg-background/95 backdrop-blur-sm p-4 shadow-xl">
+                                        <div className="space-y-2">
+                                          <div className="flex items-center gap-2 pb-2 border-b">
+                                            <TrendingDown className="h-4 w-4 text-primary" />
+                                            <span className="font-bold text-base">{data.name}</span>
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                              <p className="text-xs uppercase text-muted-foreground font-medium">Cost Per Lead</p>
+                                              <p className="text-lg font-bold text-black dark:text-white">
+                                                ₱{data.cpl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                              </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                              <p className="text-xs uppercase text-muted-foreground font-medium">Budget</p>
+                                              <p className="text-sm font-semibold text-black dark:text-white">
+                                                ₱{data.budget.toLocaleString()}
+                                              </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                              <p className="text-xs uppercase text-muted-foreground font-medium">Leads Generated</p>
+                                              <p className="text-sm font-semibold text-foreground">
+                                                {data.leads.toLocaleString()}
+                                              </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                              <p className="text-xs uppercase text-muted-foreground font-medium">ROI Efficiency</p>
+                                              <p className={`text-sm font-semibold ${data.cpl < 1000 ? 'text-green-600' : data.cpl < 5000 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                                {data.cpl < 1000 ? 'Excellent' : data.cpl < 5000 ? 'Good' : 'Needs Improvement'}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )
+                                  }
+                                  return null
+                                }}
+                              />
+                              <Bar 
+                                dataKey="cpl" 
+                                radius={[0, 8, 8, 0]}
+                                strokeWidth={2}
+                              >
+                                {cplData.map((entry, index) => {
+                                  // Color based on CPL: green for low, yellow for medium, red for high
+                                  let color = COLORS[index % COLORS.length]
+                                  if (entry.cpl < 1000) {
+                                    color = COLORS[1] // Green - excellent efficiency (hsl(142, 76%, 36%))
+                                  } else if (entry.cpl < 5000) {
+                                    color = COLORS[7] // Yellow - good efficiency (hsl(47, 96%, 53%))
+                                  } else {
+                                    color = COLORS[4] // Red - needs improvement (hsl(0, 84%, 60%))
+                                  }
+                                  return (
+                                    <Cell 
+                                      key={`cell-${index}`} 
+                                      fill={color}
+                                      stroke={color}
+                                    />
+                                  )
+                                })}
+                              </Bar>
+                            </BarChart>
+                          </ChartContainer>
+                        ) : (
+                          <div className="h-[350px] flex flex-col items-center justify-center border border-dashed border-border rounded-lg bg-muted/20">
+                            <TrendingDown className="h-12 w-12 text-muted-foreground mb-3 opacity-50" />
+                            <p className="text-sm font-medium text-foreground mb-1">No CPL data available</p>
+                            <p className="text-xs text-muted-foreground text-center px-4">Cost per lead data will appear here once marketing activities with budgets and leads are recorded.</p>
+                          </div>
+                        )
+                      })()}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Performance by School */}
+                <Card className="border-2 shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border-b py-2">
+                    <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                      <Building2 className="h-3.5 w-3.5" />
+                      Performance by School
+                    </CardTitle>
+                    <CardDescription className="text-xs mt-0.5">Leads generated per school from marketing activities</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-2 pt-0">
+                    {isLoadingMarketing ? (
+                      <div className="h-[350px] flex flex-col items-center justify-center border border-dashed border-border rounded-lg">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+                        <p className="text-sm text-muted-foreground">Loading chart data...</p>
+                      </div>
+                    ) : (() => {
+                      // Group activities by school
+                      const schoolData: { [key: string]: { name: string; leads: number; budget: number } } = {}
+                      
+                      marketingActivities.forEach((activity: any) => {
+                        const schoolName = activity.school || 'Unspecified'
+                        
+                        if (!schoolData[schoolName]) {
+                          schoolData[schoolName] = {
+                            name: schoolName,
+                            leads: 0,
+                            budget: 0
+                          }
+                        }
+                        
+                        schoolData[schoolName].leads += activity.leadsGenerated || 0
+                        schoolData[schoolName].budget += parseFloat(activity.budget || 0)
+                      })
+                      
+                      const performanceData = Object.values(schoolData)
+                        .filter(school => school.leads > 0 || school.budget > 0)
+                        .sort((a, b) => b.leads - a.leads)
+                        .slice(0, 10)
+                      
+                      return performanceData.length > 0 ? (
+                        <ChartContainer
+                          config={{
+                            leads: {
+                              label: "Leads",
+                              color: "hsl(var(--chart-1))",
+                            },
+                            budget: {
+                              label: "Budget",
+                              color: "hsl(var(--chart-2))",
+                            },
+                          }}
+                          className="h-[350px] w-full"
+                        >
+                          <BarChart
+                            layout="vertical"
+                            data={performanceData}
+                            margin={{ top: 5, right: 60, left: 90, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" opacity={0.3} />
+                            <XAxis 
+                              type="number"
+                              domain={[0, (dataMax: number) => Math.max(dataMax || 0, 1)]}
+                              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                              tickFormatter={(value: number) => Math.round(value).toString()}
+                              allowDecimals={false}
+                              label={{ value: 'Leads Generated', position: 'insideBottom', offset: -3, fill: 'hsl(var(--foreground))', style: { fontSize: '10px' } }}
+                            />
+                            <YAxis 
+                              dataKey="name"
+                              type="category"
+                              width={85}
+                              tick={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 500 }}
+                              tickFormatter={(value: string) => {
+                                if (value.length > 15) {
+                                  return `${value.substring(0, 15)}...`
+                                }
+                                return value
+                              }}
+                            />
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  const data = payload[0].payload
+                                  const totalLeads = performanceData.reduce((sum, item) => sum + item.leads, 0)
+                                  const totalBudget = performanceData.reduce((sum, item) => sum + item.budget, 0)
+                                  const leadsPercent = totalLeads > 0 ? ((data.leads / totalLeads) * 100).toFixed(1) : '0'
+                                  const budgetPercent = totalBudget > 0 ? ((data.budget / totalBudget) * 100).toFixed(1) : '0'
+                                  return (
+                                    <div className="rounded-lg border-2 bg-background/95 backdrop-blur-sm p-4 shadow-xl">
+                                      <div className="space-y-2">
+                                        <div className="flex items-center gap-2 pb-2 border-b">
+                                          <Building2 className="h-4 w-4 text-primary" />
+                                          <span className="font-bold text-base">{data.name}</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                          <div className="space-y-1">
+                                            <p className="text-xs uppercase text-muted-foreground font-medium">Leads Generated</p>
+                                            <p className="text-lg font-bold text-primary">
+                                              {Math.round(data.leads).toLocaleString()}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">{leadsPercent}% of total</p>
+                                          </div>
+                                          <div className="space-y-1">
+                                            <p className="text-xs uppercase text-muted-foreground font-medium">Total Budget</p>
+                                            <p className="text-lg font-bold" style={{ color: 'hsl(var(--chart-2))' }}>
+                                              ₱{Math.round(data.budget).toLocaleString()}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">{budgetPercent}% of total</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )
+                                }
+                                return null
+                              }}
+                            />
+                            <Bar 
+                              dataKey="leads" 
+                              fill="hsl(var(--chart-1))"
+                              radius={[0, 8, 8, 0]}
+                              name="Leads Generated"
+                            >
+                              {performanceData.map((entry, index) => (
+                                <Cell 
+                                  key={`leads-cell-${index}`} 
+                                  fill={COLORS[index % COLORS.length]}
+                                  stroke={COLORS[index % COLORS.length]}
+                                />
+                              ))}
+                              <LabelList 
+                                dataKey="leads" 
+                                position="right" 
+                                offset={10}
+                                style={{ fill: 'hsl(var(--foreground))', fontSize: '11px', fontWeight: 500 }}
+                                formatter={(value: number) => Math.round(value)}
+                              />
+                            </Bar>
+                          </BarChart>
+                        </ChartContainer>
+                      ) : (
+                        <div className="h-[350px] flex flex-col items-center justify-center border border-dashed border-border rounded-lg bg-muted/20">
+                          <Building2 className="h-12 w-12 text-muted-foreground mb-3 opacity-50" />
+                          <p className="text-sm font-medium text-foreground mb-1">No school performance data available</p>
+                          <p className="text-xs text-muted-foreground text-center px-4">School performance data will appear here once marketing activities are linked to schools.</p>
+                        </div>
+                      )
+                    })()}
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             {/* Inquiries Tab */}
@@ -2156,6 +2508,7 @@ export default function AdminDashboardPage() {
                             type="number" 
                             domain={[0, 'dataMax']}
                             tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 8 }}
+                            tickFormatter={(value: number) => Math.round(value).toString()}
                             label={{ value: 'Number of Inquiries', position: 'insideBottom', offset: -3, fill: 'hsl(var(--foreground))', style: { fontSize: '8px' } }}
                           />
                           <YAxis 
@@ -2226,48 +2579,106 @@ export default function AdminDashboardPage() {
               </CardHeader>
               <CardContent className="p-2 pt-0">
                 {isLoadingData ? (
-                  <div className="h-[300px] flex items-center justify-center">
-                    <p className="text-muted-foreground">Loading...</p>
+                  <div className="h-[350px] flex flex-col items-center justify-center border border-dashed border-border rounded-lg">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+                    <p className="text-sm text-muted-foreground">Loading chart data...</p>
                   </div>
                 ) : topCourses.length > 0 ? (
-                  <ChartContainer
-                    config={{
-                      value: {
-                        label: "Inquiries",
-                        color: "hsl(var(--chart-1))",
-                      },
-                    }}
-                    className="h-[300px]"
-                  >
-                    <PieChart>
-                      <Pie
-                        data={topCourses}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
+                  <div className="flex gap-4 h-[350px] overflow-hidden">
+                    {/* Custom Legend on Left */}
+                    <div className="flex flex-col justify-center gap-3 min-w-[180px] max-w-[200px] flex-shrink-0">
+                      {topCourses.map((entry, index) => {
+                        const total = topCourses.reduce((sum, item) => sum + item.value, 0)
+                        const percent = ((entry.value / total) * 100).toFixed(1)
+                        return (
+                          <div key={index} className="flex items-center gap-2">
+                            <div 
+                              className="w-4 h-4 rounded-sm flex-shrink-0"
+                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-foreground leading-tight truncate">{entry.name}</p>
+                              <p className="text-xs text-muted-foreground">{percent}%</p>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    {/* Donut Chart on Right */}
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <ChartContainer
+                        config={{
+                          value: {
+                            label: "Inquiries",
+                            color: "hsl(var(--chart-1))",
+                          },
+                        }}
+                        className="h-full w-full"
                       >
-                        {topCourses.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Legend 
-                        verticalAlign="bottom" 
-                        height={36}
-                        formatter={(value, entry: any) => (
-                          <span style={{ color: entry.color }}>
-                            {value}: {((entry.payload.value / topCourses.reduce((sum, item) => sum + item.value, 0)) * 100).toFixed(0)}%
-                          </span>
-                        )}
-                      />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                    </PieChart>
-                  </ChartContainer>
+                        <PieChart>
+                          <Pie
+                            data={topCourses}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={80}
+                            innerRadius={30}
+                            fill="#8884d8"
+                            dataKey="value"
+                            paddingAngle={2}
+                          >
+                            {topCourses.map((entry, index) => (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={COLORS[index % COLORS.length]} 
+                                stroke={COLORS[index % COLORS.length]}
+                                strokeWidth={2}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length) {
+                                const data = payload[0].payload
+                                const total = topCourses.reduce((sum, item) => sum + item.value, 0)
+                                const percent = ((data.value / total) * 100).toFixed(1)
+                                return (
+                                  <div className="rounded-lg border-2 bg-background/95 backdrop-blur-sm p-4 shadow-xl">
+                                    <div className="space-y-2">
+                                      <div className="flex items-center gap-2 pb-2 border-b">
+                                        <BookOpen className="h-4 w-4 text-primary" />
+                                        <span className="font-bold text-base">{data.name}</span>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                          <p className="text-xs uppercase text-muted-foreground font-medium">Inquiries</p>
+                                          <p className="text-lg font-bold text-primary">
+                                            {data.value.toLocaleString()}
+                                          </p>
+                                        </div>
+                                        <div className="space-y-1">
+                                          <p className="text-xs uppercase text-muted-foreground font-medium">Percentage</p>
+                                          <p className="text-lg font-bold text-foreground">
+                                            {percent}%
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              }
+                              return null
+                            }}
+                          />
+                        </PieChart>
+                      </ChartContainer>
+                    </div>
+                  </div>
                 ) : (
-                  <div className="h-[300px] flex items-center justify-center">
-                    <p className="text-muted-foreground">No data available</p>
+                  <div className="h-[350px] flex flex-col items-center justify-center border border-dashed border-border rounded-lg bg-muted/20">
+                    <BookOpen className="h-12 w-12 text-muted-foreground mb-3 opacity-50" />
+                    <p className="text-sm font-medium text-foreground mb-1">No course data available</p>
+                    <p className="text-xs text-muted-foreground text-center px-4">Course preference data will appear here once inquiries are recorded.</p>
                   </div>
                 )}
               </CardContent>
@@ -2284,48 +2695,106 @@ export default function AdminDashboardPage() {
               </CardHeader>
               <CardContent className="p-2 pt-0">
                 {isLoadingData ? (
-                  <div className="h-[300px] flex items-center justify-center">
-                    <p className="text-muted-foreground">Loading...</p>
+                  <div className="h-[350px] flex flex-col items-center justify-center border border-dashed border-border rounded-lg">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+                    <p className="text-sm text-muted-foreground">Loading chart data...</p>
                   </div>
                 ) : topStrands.length > 0 ? (
-                  <ChartContainer
-                    config={{
-                      value: {
-                        label: "Inquiries",
-                        color: "hsl(var(--chart-1))",
-                      },
-                    }}
-                    className="h-[300px]"
-                  >
-                    <PieChart>
-                      <Pie
-                        data={topStrands}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
+                  <div className="flex gap-4 h-[350px] overflow-hidden">
+                    {/* Custom Legend on Left */}
+                    <div className="flex flex-col justify-center gap-3 min-w-[180px] max-w-[200px] flex-shrink-0">
+                      {topStrands.map((entry, index) => {
+                        const total = topStrands.reduce((sum, item) => sum + item.value, 0)
+                        const percent = ((entry.value / total) * 100).toFixed(1)
+                        return (
+                          <div key={index} className="flex items-center gap-2">
+                            <div 
+                              className="w-4 h-4 rounded-sm flex-shrink-0"
+                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-foreground leading-tight truncate">{entry.name}</p>
+                              <p className="text-xs text-muted-foreground">{percent}%</p>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    {/* Donut Chart on Right */}
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <ChartContainer
+                        config={{
+                          value: {
+                            label: "Inquiries",
+                            color: "hsl(var(--chart-1))",
+                          },
+                        }}
+                        className="h-full w-full"
                       >
-                        {topStrands.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Legend 
-                        verticalAlign="bottom" 
-                        height={36}
-                        formatter={(value, entry: any) => (
-                          <span style={{ color: entry.color }}>
-                            {value}: {((entry.payload.value / topStrands.reduce((sum, item) => sum + item.value, 0)) * 100).toFixed(0)}%
-                          </span>
-                        )}
-                      />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                    </PieChart>
-                  </ChartContainer>
+                        <PieChart>
+                          <Pie
+                            data={topStrands}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={80}
+                            innerRadius={30}
+                            fill="#8884d8"
+                            dataKey="value"
+                            paddingAngle={2}
+                          >
+                            {topStrands.map((entry, index) => (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={COLORS[index % COLORS.length]} 
+                                stroke={COLORS[index % COLORS.length]}
+                                strokeWidth={2}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length) {
+                                const data = payload[0].payload
+                                const total = topStrands.reduce((sum, item) => sum + item.value, 0)
+                                const percent = ((data.value / total) * 100).toFixed(1)
+                                return (
+                                  <div className="rounded-lg border-2 bg-background/95 backdrop-blur-sm p-4 shadow-xl">
+                                    <div className="space-y-2">
+                                      <div className="flex items-center gap-2 pb-2 border-b">
+                                        <BookOpen className="h-4 w-4 text-primary" />
+                                        <span className="font-bold text-base">{data.name}</span>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                          <p className="text-xs uppercase text-muted-foreground font-medium">Inquiries</p>
+                                          <p className="text-lg font-bold text-primary">
+                                            {data.value.toLocaleString()}
+                                          </p>
+                                        </div>
+                                        <div className="space-y-1">
+                                          <p className="text-xs uppercase text-muted-foreground font-medium">Percentage</p>
+                                          <p className="text-lg font-bold text-foreground">
+                                            {percent}%
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              }
+                              return null
+                            }}
+                          />
+                        </PieChart>
+                      </ChartContainer>
+                    </div>
+                  </div>
                 ) : (
-                  <div className="h-[300px] flex items-center justify-center">
-                    <p className="text-muted-foreground">No data available</p>
+                  <div className="h-[350px] flex flex-col items-center justify-center border border-dashed border-border rounded-lg bg-muted/20">
+                    <BookOpen className="h-12 w-12 text-muted-foreground mb-3 opacity-50" />
+                    <p className="text-sm font-medium text-foreground mb-1">No strand data available</p>
+                    <p className="text-xs text-muted-foreground text-center px-4">Strand preference data will appear here once inquiries are recorded.</p>
                   </div>
                 )}
               </CardContent>
@@ -2353,7 +2822,7 @@ export default function AdminDashboardPage() {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
                     <p className="text-sm text-muted-foreground">Loading chart data...</p>
                   </div>
-                ) : enrolledPerProgram.length > 0 ? (
+                ) : enrolledPerProgram && Array.isArray(enrolledPerProgram) && enrolledPerProgram.length > 0 ? (
                   <ChartContainer
                     config={{
                       enrolled: {
@@ -2371,8 +2840,10 @@ export default function AdminDashboardPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" opacity={0.3} />
                       <XAxis 
                         type="number" 
-                        domain={[0, 'dataMax']}
+                        domain={[0, (dataMax: number) => Math.max(dataMax || 0, 1)]}
                         tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                        tickFormatter={(value: number) => Math.round(value).toString()}
+                        allowDecimals={false}
                         label={{ value: 'Number of Students', position: 'insideBottom', offset: -3, fill: 'hsl(var(--foreground))', style: { fontSize: '10px' } }}
                       />
                       <YAxis 
@@ -2395,7 +2866,7 @@ export default function AdminDashboardPage() {
                                   <div className="space-y-1">
                                     <p className="text-xs uppercase text-muted-foreground font-medium">Enrolled Students</p>
                                     <p className="text-lg font-bold text-primary">
-                                      {data.value.toLocaleString()}
+                                      {Math.round(data.value).toLocaleString()}
                                     </p>
                                   </div>
                                 </div>
@@ -2421,7 +2892,7 @@ export default function AdminDashboardPage() {
                                   dataKey="value" 
                                   position="right" 
                                   style={{ fill: 'hsl(var(--foreground))', fontSize: '11px', fontWeight: 500 }}
-                                  formatter={(value: number) => value}
+                                  formatter={(value: number) => Math.round(value)}
                                 />
                               </Bar>
                     </BarChart>
@@ -2471,6 +2942,8 @@ export default function AdminDashboardPage() {
                         type="number" 
                         domain={[0, (dataMax: number) => Math.max(dataMax || 0, 1)]}
                         tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                        tickFormatter={(value: number) => Math.round(value).toString()}
+                        allowDecimals={false}
                         label={{ value: 'Number of Students', position: 'insideBottom', offset: -3, fill: 'hsl(var(--foreground))', style: { fontSize: '10px' } }}
                       />
                       <YAxis 
@@ -2493,7 +2966,7 @@ export default function AdminDashboardPage() {
                                   <div className="space-y-1">
                                     <p className="text-xs uppercase text-muted-foreground font-medium">Enrolled Students</p>
                                     <p className="text-lg font-bold text-primary">
-                                      {data.value.toLocaleString()}
+                                      {Math.round(data.value).toLocaleString()}
                                     </p>
                                   </div>
                                 </div>
@@ -2519,7 +2992,7 @@ export default function AdminDashboardPage() {
                                   dataKey="value" 
                                   position="right" 
                                   style={{ fill: 'hsl(var(--foreground))', fontSize: '11px', fontWeight: 500 }}
-                                  formatter={(value: number) => value}
+                                  formatter={(value: number) => Math.round(value)}
                                 />
                               </Bar>
                     </BarChart>
@@ -2642,12 +3115,312 @@ export default function AdminDashboardPage() {
                     })()}
                   </CardContent>
                 </Card>
+
+                {/* Cost Per Lead Analysis */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Cost Per Lead Analysis</CardTitle>
+                    <CardDescription>Marketing efficiency: budget spent per lead generated (lower is better)</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingMarketing ? (
+                      <div className="h-[300px] flex items-center justify-center">
+                        <p className="text-muted-foreground">Loading...</p>
+                      </div>
+                    ) : (() => {
+                      const cplData = marketingActivities
+                        .filter((activity: any) => {
+                          const budget = parseFloat(activity.budget || 0)
+                          const leads = activity.leadsGenerated || 0
+                          return budget > 0 && leads > 0
+                        })
+                        .map((activity: any) => {
+                          const budget = parseFloat(activity.budget || 0)
+                          const leads = activity.leadsGenerated || 0
+                          const cpl = leads > 0 ? budget / leads : 0
+                          return {
+                            name: activity.title || 'Untitled',
+                            cpl: Math.round(cpl * 100) / 100,
+                            budget: budget,
+                            leads: leads
+                          }
+                        })
+                        .sort((a, b) => a.cpl - b.cpl)
+                        .slice(0, 10)
+                      
+                      return cplData.length > 0 ? (
+                        <ChartContainer
+                          config={{
+                            cpl: {
+                              label: "Cost Per Lead",
+                              color: "hsl(var(--chart-1))",
+                            },
+                          }}
+                          className="h-[300px]"
+                        >
+                          <BarChart
+                            layout="vertical"
+                            data={cplData}
+                            margin={{ top: 5, right: 60, left: 90, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" opacity={0.3} />
+                            <XAxis 
+                              type="number" 
+                              domain={[0, (dataMax: number) => Math.max(dataMax || 0, 1)]}
+                              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                              tickFormatter={(value: number) => {
+                                if (value >= 1000) {
+                                  return `₱${(value / 1000).toFixed(1)}k`
+                                }
+                                return `₱${Math.round(value)}`
+                              }}
+                              allowDecimals={false}
+                              label={{ value: 'Cost Per Lead (₱)', position: 'insideBottom', offset: -3, fill: 'hsl(var(--foreground))', style: { fontSize: '10px' } }}
+                            />
+                            <YAxis 
+                              dataKey="name" 
+                              type="category" 
+                              width={85}
+                              tick={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 500 }}
+                              tickFormatter={(value: string) => {
+                                if (value.length > 15) {
+                                  return `${value.substring(0, 15)}...`
+                                }
+                                return value
+                              }}
+                            />
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  const data = payload[0].payload
+                                  return (
+                                    <div className="rounded-lg border-2 bg-background/95 backdrop-blur-sm p-4 shadow-xl">
+                                      <div className="space-y-2">
+                                        <div className="flex items-center gap-2 pb-2 border-b">
+                                          <TrendingDown className="h-4 w-4 text-primary" />
+                                          <span className="font-bold text-base">{data.name}</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                          <div className="space-y-1">
+                                            <p className="text-xs uppercase text-muted-foreground font-medium">Cost Per Lead</p>
+                                            <p className="text-lg font-bold text-black dark:text-white">
+                                              ₱{data.cpl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </p>
+                                          </div>
+                                          <div className="space-y-1">
+                                            <p className="text-xs uppercase text-muted-foreground font-medium">Budget</p>
+                                            <p className="text-sm font-semibold text-black dark:text-white">
+                                              ₱{data.budget.toLocaleString()}
+                                            </p>
+                                          </div>
+                                          <div className="space-y-1">
+                                            <p className="text-xs uppercase text-muted-foreground font-medium">Leads Generated</p>
+                                            <p className="text-sm font-semibold text-foreground">
+                                              {data.leads.toLocaleString()}
+                                            </p>
+                                          </div>
+                                          <div className="space-y-1">
+                                            <p className="text-xs uppercase text-muted-foreground font-medium">ROI Efficiency</p>
+                                            <p className={`text-sm font-semibold ${data.cpl < 1000 ? 'text-green-600' : data.cpl < 5000 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                              {data.cpl < 1000 ? 'Excellent' : data.cpl < 5000 ? 'Good' : 'Needs Improvement'}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )
+                                }
+                                return null
+                              }}
+                            />
+                            <Bar 
+                              dataKey="cpl" 
+                              radius={[0, 8, 8, 0]}
+                              strokeWidth={2}
+                            >
+                              {cplData.map((entry, index) => {
+                                let color = COLORS[index % COLORS.length]
+                                if (entry.cpl < 1000) {
+                                  color = COLORS[1] // Green - excellent efficiency (hsl(142, 76%, 36%))
+                                } else if (entry.cpl < 5000) {
+                                  color = COLORS[7] // Yellow - good efficiency (hsl(47, 96%, 53%))
+                                } else {
+                                  color = COLORS[4] // Red - needs improvement (hsl(0, 84%, 60%))
+                                }
+                                return (
+                                  <Cell 
+                                    key={`cell-${index}`} 
+                                    fill={color}
+                                    stroke={color}
+                                  />
+                                )
+                              })}
+                            </Bar>
+                          </BarChart>
+                        </ChartContainer>
+                      ) : (
+                        <div className="h-[300px] flex items-center justify-center">
+                          <p className="text-muted-foreground">No CPL data available</p>
+                        </div>
+                      )
+                    })()}
+                  </CardContent>
+                </Card>
                       </div>
             </TabsContent>
 
             {/* Schools Tab */}
             <TabsContent value="schools" className="space-y-6">
-
+              {/* Performance by School */}
+              <Card className="border-2 shadow-lg">
+                <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border-b py-2">
+                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                    <Building2 className="h-3.5 w-3.5" />
+                    Performance by School
+                  </CardTitle>
+                  <CardDescription className="text-xs mt-0.5">Leads generated per school from marketing activities</CardDescription>
+                </CardHeader>
+                <CardContent className="p-2 pt-0">
+                  {isLoadingMarketing ? (
+                    <div className="h-[350px] flex flex-col items-center justify-center border border-dashed border-border rounded-lg">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+                      <p className="text-sm text-muted-foreground">Loading chart data...</p>
+                    </div>
+                  ) : (() => {
+                    // Group activities by school
+                    const schoolData: { [key: string]: { name: string; leads: number; budget: number } } = {}
+                    
+                    marketingActivities.forEach((activity: any) => {
+                      const schoolName = activity.school || 'Unspecified'
+                      
+                      if (!schoolData[schoolName]) {
+                        schoolData[schoolName] = {
+                          name: schoolName,
+                          leads: 0,
+                          budget: 0
+                        }
+                      }
+                      
+                      schoolData[schoolName].leads += activity.leadsGenerated || 0
+                      schoolData[schoolName].budget += parseFloat(activity.budget || 0)
+                    })
+                    
+                    const performanceData = Object.values(schoolData)
+                      .filter(school => school.leads > 0 || school.budget > 0)
+                      .sort((a, b) => b.leads - a.leads)
+                      .slice(0, 10)
+                    
+                    return performanceData.length > 0 ? (
+                      <ChartContainer
+                        config={{
+                          leads: {
+                            label: "Leads",
+                            color: "hsl(var(--chart-1))",
+                          },
+                          budget: {
+                            label: "Budget",
+                            color: "hsl(var(--chart-2))",
+                          },
+                        }}
+                        className="h-[350px] w-full"
+                      >
+                        <BarChart
+                          layout="vertical"
+                          data={performanceData}
+                          margin={{ top: 5, right: 60, left: 90, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" opacity={0.3} />
+                          <XAxis 
+                            type="number"
+                            domain={[0, (dataMax: number) => Math.max(dataMax || 0, 1)]}
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                            tickFormatter={(value: number) => Math.round(value).toString()}
+                            allowDecimals={false}
+                            label={{ value: 'Leads Generated', position: 'insideBottom', offset: -3, fill: 'hsl(var(--foreground))', style: { fontSize: '10px' } }}
+                          />
+                          <YAxis 
+                            dataKey="name"
+                            type="category"
+                            width={85}
+                            tick={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 500 }}
+                            tickFormatter={(value: string) => {
+                              if (value.length > 15) {
+                                return `${value.substring(0, 15)}...`
+                              }
+                              return value
+                            }}
+                          />
+                          <Tooltip
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length) {
+                                const data = payload[0].payload
+                                const totalLeads = performanceData.reduce((sum, item) => sum + item.leads, 0)
+                                const totalBudget = performanceData.reduce((sum, item) => sum + item.budget, 0)
+                                const leadsPercent = totalLeads > 0 ? ((data.leads / totalLeads) * 100).toFixed(1) : '0'
+                                const budgetPercent = totalBudget > 0 ? ((data.budget / totalBudget) * 100).toFixed(1) : '0'
+                                return (
+                                  <div className="rounded-lg border-2 bg-background/95 backdrop-blur-sm p-4 shadow-xl">
+                                    <div className="space-y-2">
+                                      <div className="flex items-center gap-2 pb-2 border-b">
+                                        <Building2 className="h-4 w-4 text-primary" />
+                                        <span className="font-bold text-base">{data.name}</span>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                          <p className="text-xs uppercase text-muted-foreground font-medium">Leads Generated</p>
+                                          <p className="text-lg font-bold text-primary">
+                                            {Math.round(data.leads).toLocaleString()}
+                                          </p>
+                                          <p className="text-xs text-muted-foreground">{leadsPercent}% of total</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                          <p className="text-xs uppercase text-muted-foreground font-medium">Total Budget</p>
+                                          <p className="text-lg font-bold" style={{ color: 'hsl(var(--chart-2))' }}>
+                                            ₱{Math.round(data.budget).toLocaleString()}
+                                          </p>
+                                          <p className="text-xs text-muted-foreground">{budgetPercent}% of total</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              }
+                              return null
+                            }}
+                          />
+                          <Bar 
+                            dataKey="leads" 
+                            fill="hsl(var(--chart-1))"
+                            radius={[0, 8, 8, 0]}
+                            name="Leads Generated"
+                          >
+                            {performanceData.map((entry, index) => (
+                              <Cell 
+                                key={`leads-cell-${index}`} 
+                                fill={COLORS[index % COLORS.length]}
+                                stroke={COLORS[index % COLORS.length]}
+                              />
+                            ))}
+                            <LabelList 
+                              dataKey="leads" 
+                              position="right" 
+                              offset={10}
+                              style={{ fill: 'hsl(var(--foreground))', fontSize: '11px', fontWeight: 500 }}
+                              formatter={(value: number) => Math.round(value)}
+                            />
+                          </Bar>
+                        </BarChart>
+                      </ChartContainer>
+                    ) : (
+                      <div className="h-[350px] flex flex-col items-center justify-center border border-dashed border-border rounded-lg bg-muted/20">
+                        <Building2 className="h-12 w-12 text-muted-foreground mb-3 opacity-50" />
+                        <p className="text-sm font-medium text-foreground mb-1">No school performance data available</p>
+                        <p className="text-xs text-muted-foreground text-center px-4">School performance data will appear here once marketing activities are linked to schools.</p>
+                      </div>
+                    )
+                  })()}
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </main>
